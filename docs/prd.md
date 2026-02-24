@@ -31,8 +31,8 @@ The app handles parsing, cleaning, anonymising, and categorising transactions, e
 
 ## Technical References
 For implementation details, refer to:
-- **[ARCHITECTURE.md](./ARCHITECTURE.md)**: System design and patterns.
-- **[specs/bank-parsing.md](./specs/bank-parsing.md)**: Deep dive into parser rules.
-- **[specs/ai-categorisation.md](./specs/ai-categorisation.md)**: AI and anonymisation logic.
-- **[specs/export.md](./specs/export.md)**: Export format requirements.
-- **[TODO.md](./TODO.md)**: Active development tasks.
+- **[architecture.md](./architecture.md)**: System design and patterns.
+- **[specs/bank-parsing.md](../specs/bank-parsing.md)**: Deep dive into parser rules.
+- **[specs/ai-categorisation.md](../specs/ai-categorisation.md)**: AI and anonymisation logic.
+- **[specs/export.md](../specs/export.md)**: Export format requirements.
+- **[todo.md](./todo.md)**: Active development tasks.
