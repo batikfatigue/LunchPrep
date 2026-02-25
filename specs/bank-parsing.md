@@ -57,10 +57,10 @@ Strip from all fields before output: card numbers (`\d{4}-\d{4}-\d{4}-\d{4}`), p
 
 | Raw DBS Description | Cleaned Payee | Notes |
 |---|---|---|
-| `NETS QR PAYMENT 605412025689703 TO: CHICKEN RICE KITCHEN` | Chicken Rice Kitchen | — |
-| `MCDONALD'S (KAL) SI SGP 18FEB 1234-5678-9012-3456 000002107332371` | McDonald's (Kal) | — |
+| `NETS QR PAYMENT 605412025689703 TO: NOODLE HOUSE STALL` | Noodle House Stall | — |
+| `BURGER KING (XYZ) SI SGP 18FEB 1234-5678-9012-3456 000002107332371` | Burger King (Xyz) | — |
 | `BUS/MRT 799701767 SI SGP 14FEB 1234-5678-9012-3456 …` | Bus/MRT | — |
 | `Incoming PayNow Ref 5891733 From: NG SOO IM OTHR PayNow transfer` | Ng Soo Im | PayNow transfer |
-| `PayNow Transfer 5320167 To: YONG GUANG SEAFOOD HG PTE. LTD. OTHR san lor horfun` | Yong Guang Seafood | san lor horfun |
+| `PayNow Transfer 5320167 To: OCEAN CATCH SEAFOOD PTE. LTD. OTHR san lor horfun` | Ocean Catch Seafood | san lor horfun |
 | `SEND BACK FROM PAYLAH! : 82765694 TF675051…` | PayLah! | Received |
 | `Trus:1234567890:I-BANK Transfer Top Up Bank 1771…` | Trus | Top Up Bank |

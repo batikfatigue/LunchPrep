@@ -10,10 +10,10 @@ Headers: `date,payee,amount,category,notes`
 
 ```csv
 date,payee,amount,category,notes
-2026-02-23,Chicken Rice Kitchen,-9.30,Dining,
-2026-02-21,McDonald's (Kal),-28.45,Dining,
-2026-02-21,Ng Soo Im,200.00,Income,PayNow transfer
-2026-02-11,Yong Guang Seafood,-6.30,Dining,san lor horfun
+2026-02-23,NOODLE HOUSE STALL,-9.30,Dining,
+2026-02-21,BURGER KING (XYZ),-28.45,Dining,
+2026-02-21,ALICE WONG,200.00,Income,PayNow transfer
+2026-02-11,OCEAN CATCH SEAFOOD PTE. LTD.,-6.30,Dining,san lor horfun
 ```
 
 - `date`: ISO 8601 (`YYYY-MM-DD`)
