@@ -3,12 +3,12 @@
 ## Phase 1: Foundation 🏗️
 
 **Project Setup**
-- [ ] Initialise Next.js 15 project with TypeScript (`create-next-app`)
-- [ ] Install and configure Tailwind CSS 4
-- [ ] Install and configure shadcn/ui
-- [ ] Set up Vitest for unit testing
-- [ ] Create `.env.local` template with `GEMINI_API_KEY`, `GEMINI_MODEL`, `RATE_LIMIT_RPM`
-- [ ] Configure base layout (`layout.tsx`) and shell structure
+- [x] Initialise Next.js 15 project with TypeScript (`create-next-app`)
+- [x] Install and configure Tailwind CSS 4
+- [x] Install and configure shadcn/ui
+- [x] Set up Vitest for unit testing
+- [x] Create `.env.local` template with `GEMINI_API_KEY`, `GEMINI_MODEL`, `RATE_LIMIT_RPM`
+- [x] Configure base layout (`layout.tsx`) and shell structure
 
 **Parser: Core**
 - [ ] Define `RawTransaction` and `BankParser` TypeScript interfaces (`src/lib/parsers/types.ts`)

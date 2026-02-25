@@ -75,7 +75,7 @@ Registry auto-selects the correct parser; adding a bank = adding one file implem
 ## Stack
 | Layer | Choice |
 |---|---|
-| Framework | Next.js 15 + TypeScript |
+| Framework | Next.js 16 + TypeScript |
 | UI | shadcn/ui + Tailwind CSS 4 |
 | CSV parsing | PapaParse (client-side) |
 | AI | Gemini 2.5 Flash-Lite via `@google/generative-ai` |
