@@ -4,6 +4,7 @@ Thumbs.db
 
 # Project-specific exclusions
 .claude/
+HANDOFF.md
 
 # Python/Virtual Environment (Standard)
 __pycache__/

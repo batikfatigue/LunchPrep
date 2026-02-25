@@ -6,6 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 LunchPrep — Convert Singapore bank CSVs into Lunch Money imports with Gemini AI categorisation.
 
+## Requirements
+
+Read [docs/prd.md](docs/prd.md) for product scope and MVP definition.
+
+
 ## Commands
 
 ```bash
@@ -15,13 +20,10 @@ npm test                 # All tests
 npx vitest run <path>    # Single test file
 ```
 
+
 ## Architecture
 
 Read [docs/architecture.md](docs/architecture.md) for system design, data flow, interfaces, and directory structure.
-
-## Requirements
-
-Read [docs/prd.md](docs/prd.md) for product scope and MVP definition.
 
 ## Specs
 
@@ -29,6 +31,10 @@ Detailed implementation specs live in `specs/`:
 - [specs/bank-parsing.md](specs/bank-parsing.md) — DBS parser rules and transformations
 - [specs/ai-categorisation.md](specs/ai-categorisation.md) — Anonymisation, Gemini config, API contract
 - [specs/export.md](specs/export.md) — Lunch Money CSV format
+
+## Reference Data
+
+- [docs/dbs_formats.md](docs/dbs_formats.md) — Raw DBS CSV field formats per transaction code (reference for parser rules)
 
 ## Roadmap
 

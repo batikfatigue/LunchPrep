@@ -9,24 +9,25 @@ The app handles parsing, cleaning, anonymising, and categorising transactions, e
 **Mission:** Make personal expense tracking effortless by bridging the gap between raw bank statements and structured financial tools.
 
 1. **Privacy-first** — Data processed client-side. Anonymised AI calls. No server storage.
-2. **Minimal effort** — Bank CSV to export in under 2 minutes.
-3. **Transparency** — Users can review data before export.
+2. **Minimal effort** — Convert Bank CSV to a Lunch Money import file in under 2 minutes.
+3. **Transparency** — Users can review and adjust the categorized data before downloading the final import file.
 4. **Extensibility** — Built to support more banks (OCBC, UOB) in the future.
 
 ## 3. Core MVP Scope
 - **DBS CSV Support**: Full parsing and cleaning for DBS-specific transaction codes.
 - **AI Categorisation**: Smart merchant mapping via Gemini 2.5 Flash-Lite.
-- **Privacy Protections**: Personal name anonymisation and PII stripping.
+- **Privacy Protections**: PII substitution (replacing real names, account numbers, etc. with realistic mock PII). This provides the AI with believable context for highest-accuracy categorization while strictly preventing sensitive data leakage. The original PII is preserved client-side and seamlessly restored into the final import file.
 - **Review Step**: Editable table to verify categories and merchant names.
-- **Export**: Valid Lunch Money CSV output.
+- **Output File**: A clean, valid Lunch Money-compatible CSV ready for import.
 - **BYOK Support**: Option for users to use their own Gemini API keys.
 
-## 4. User Stories
-- **Efficiency**: "I want to upload my statement and have it ready for Lunch Money without manual reformatting."
-- **Clarity**: "I want to see 'McDonald's' instead of cryptic bank codes."
-- **Privacy**: "I want my financial data to stay private and names to be hidden from the AI."
-- **Customization**: "I want to use my own Lunch Money categories."
+## 4. Target Audience & User Stories
 
+**Target Audience:** Users who find manual expense tracking tedious but refuse to connect third-party apps directly to their bank accounts due to security/privacy concerns. They are willing to expend a little manual effort (uploading a CSV) in exchange for total control over their data.
+
+- **Efficiency**: "I want to automate the bulk of my expense tracking without having to manually log every single transaction one by one."
+- **Privacy & Control**: "I want the convenience of AI categorization, but I need my financial data to stay private and ensure all PII is stripped before any AI processing."
+- **Accuracy**: "I want an AI tool that can categorise accurately and is reliable."
 ---
 
 ## Technical References

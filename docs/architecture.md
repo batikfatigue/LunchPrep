@@ -1,12 +1,21 @@
 # Architecture & Technical Design
 
 ## Data Flow
-```
-Browser: Upload CSV → Parse (DBS) → Clean & Anonymise → [Restore Names] → Review/Edit → Download CSV
-                                                ↓
-                                    Next.js /api/categorise (proxy)
-                                                ↓
-                                    Gemini 2.5 Flash-Lite
+``` text
+[User]   Uploads Bank CSV
+            ↓
+[App]    Parse Bank CSV & Clean Data
+            ↓
+[App]    Substitute PII with Mock Data 
+            │    (Merchants are preserved so AI can categorise accurately)
+            ↓
+            ├──→ Next.js /api/categorise (stateless proxy) ──→ Gemini 2.5 Flash-Lite
+            ↓
+[App]    Restore Original PII
+            ↓
+[User]   Review & Edit Data in Table
+            ↓
+[User]   Download Final Import CSV
 ```
 Server is a stateless proxy only — no storage, no logging. All CSV processing stays client-side.
 
@@ -19,10 +28,12 @@ src/
 │   └── api/categorise/route.ts   # Gemini proxy + rate limiting
 ├── lib/
 │   ├── parsers/
+│   │   ├── data/
+│   │   │   └── dbs_codes.json    # Static JSON dictionary: 928 DBS transaction codes → descriptions
 │   │   ├── types.ts              # BankParser interface, RawTransaction type
 │   │   ├── dbs.ts                # DBS parser + cleaner
 │   │   └── registry.ts           # Auto-detect bank from CSV headers
-│   ├── anonymiser/names.ts       # Extract names → placeholders → restore
+│   ├── anonymiser/pii.ts         # Extract PII → mock replacement → restore
 │   ├── categoriser/
 │   │   ├── prompt.ts             # Gemini prompt builder
 │   │   └── categories.ts         # Default + user-defined categories
@@ -36,7 +47,7 @@ src/
 
 tests/
 ├── parsers/dbs.test.ts
-├── anonymiser/names.test.ts
+├── anonymiser/pii.test.ts
 └── exporter/lunchmoney.test.ts
 ```
 
@@ -44,12 +55,12 @@ tests/
 ```typescript
 interface RawTransaction {
   date: Date;
-  description: string;          // Cleaned payee
+  description: string;          // Primary payee/merchant identified for AI
   originalDescription: string;  // Raw bank string
   amount: number;               // Negative=debit, positive=credit
-  transactionCode: string;      // POS | MST | ICT | ITR
-  notes: string;                // OTHR field contents
-  personalNames: string[];      // Real names (output only, not sent to AI)
+  transactionCode: string;      // Identifier code (e.g. POS, MST, ICT, ITR, etc.)
+  notes: string;                // Crucial context for AI (e.g. memos after 'OTHR' like 'Gong Xi Fa Cai'); PII is substituted
+  originalPII: Record<string, string>; // Map of mock values back to original PII (not sent to AI)
 }
 
 interface BankParser {
