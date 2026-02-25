@@ -11,26 +11,26 @@
 - [x] Configure base layout (`layout.tsx`) and shell structure
 
 **Parser: Core**
-- [ ] Define `RawTransaction` and `BankParser` TypeScript interfaces (`src/lib/parsers/types.ts`)
-- [ ] Implement parser registry with `detectAndParse()` (`src/lib/parsers/registry.ts`)
+- [x] Define `RawTransaction` and `BankParser` TypeScript interfaces (`src/lib/parsers/types.ts`)
+- [x] Implement parser registry with `detectAndParse()` (`src/lib/parsers/registry.ts`)
 
 **Parser: DBS**
-- [ ] Skip header rows 1–6; parse column headers on row 7
-- [ ] Parse `Transaction Date` (`23 Feb 2026` → `2026-02-23`)
-- [ ] Parse `Debit Amount` / `Credit Amount` into signed float, rounded to 2 d.p.
-- [ ] Clean `POS` transactions: strip `NETS QR PAYMENT <ref> TO:`, extract merchant name
-- [ ] Clean `MST` transactions: extract name before `SI SGP`, strip card number and trailing ref
-- [ ] Clean `ICT` transactions: extract `From:`/`To:` name, extract `OTHR` field as notes
-- [ ] Clean `ITR` transactions: label as `PayLah!`, strip phone number and transaction ref
-- [ ] Strip residual PII: card number pattern `\d{4}-\d{4}-\d{4}-\d{4}`, numeric reference codes
+- [x] Skip header rows 1–6; parse column headers on row 7
+- [x] Parse `Transaction Date` (`23 Feb 2026` → `2026-02-23`)
+- [x] Parse `Debit Amount` / `Credit Amount` into signed float, rounded to 2 d.p.
+- [x] Clean `POS` transactions: strip `NETS QR PAYMENT <ref> TO:`, extract merchant name
+- [x] Clean `MST` transactions: extract name before `SI SGP`, strip card number and trailing ref
+- [x] Clean `ICT` transactions: extract `From:`/`To:` name, extract `OTHR` field as notes
+- [x] Clean `ITR` transactions: label as `PayLah!`, strip phone number and transaction ref
+- [x] Strip residual PII: card number pattern `\d{4}-\d{4}-\d{4}-\d{4}`, numeric reference codes
 
 **Export**
-- [ ] Generate Lunch Money CSV string from `RawTransaction[]` (`src/lib/exporter/lunchmoney.ts`)
-- [ ] Trigger browser file download with filename `lunchprep-export-YYYY-MM-DD.csv`
+- [x] Generate Lunch Money CSV string from `RawTransaction[]` (`src/lib/exporter/lunchmoney.ts`)
+- [x] Trigger browser file download with filename `lunchprep-export-YYYY-MM-DD.csv`
 
 **Tests**
-- [ ] Unit tests for DBS parser (one test case per transaction code + edge cases)
-- [ ] Unit tests for Lunch Money CSV exporter (correct columns, signs, date format)
+- [x] Unit tests for DBS parser (one test case per transaction code + edge cases)
+- [x] Unit tests for Lunch Money CSV exporter (correct columns, signs, date format)
 
 ---
 
