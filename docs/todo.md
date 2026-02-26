@@ -3,7 +3,7 @@
 ## Phase 1: Foundation 🏗️
 
 **Project Setup**
-- [x] Initialise Next.js 15 project with TypeScript (`create-next-app`)
+- [x] Initialise Next.js 16 project with TypeScript (`create-next-app`)
 - [x] Install and configure Tailwind CSS 4
 - [x] Install and configure shadcn/ui
 - [x] Set up Vitest for unit testing
@@ -63,21 +63,21 @@
 ## Phase 3: Customisation & UI 💄
 
 **Categories**
-- [ ] Category management UI: add, remove, reorder categories
-- [ ] Persist custom categories to `localStorage`
-- [ ] Load categories from `localStorage` on startup; fall back to defaults
+- [x] Category management UI: add, remove, reorder categories
+- [x] Persist custom categories to `localStorage`
+- [x] Load categories from `localStorage` on startup; fall back to defaults
 
 **BYOK**
-- [ ] API key input component (`src/components/api-key-input.tsx`)
-- [ ] Store user key in `localStorage`; show active key mode indicator
-- [ ] Route categorise calls directly from browser to Gemini when BYOK key is set
+- [x] API key input component (`src/components/api-key-input.tsx`)
+- [x] Store user key in `localStorage`; show active key mode indicator
+- [x] Route categorise calls directly from browser to Gemini when BYOK key is set
 
 **UI Polish**
-- [ ] File upload component with drag-and-drop and file picker (`src/components/file-upload.tsx`)
-- [ ] Transaction review table with inline edit (payee, notes, category) (`src/components/transaction-table.tsx`)
-- [ ] Debit/credit colour coding (red/green)
-- [ ] Pipeline step indicator: Upload → Review → Export (`src/components/pipeline-steps.tsx`)
-- [ ] Summary row: total debits, total credits, net
+- [x] File upload component with drag-and-drop and file picker (`src/components/file-upload.tsx`)
+- [x] Transaction review table with inline edit (payee, notes, category) (`src/components/transaction-table.tsx`)
+- [x] Debit/credit colour coding (red/green)
+- [x] Pipeline step indicator: Upload → Review → Export (`src/components/pipeline-steps.tsx`)
+- [x] Summary row: total debits, total credits, net
 
 ---
 

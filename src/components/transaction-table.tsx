@@ -1,16 +1,18 @@
 "use client";
 
 /**
- * Transaction review table with AI category assignment.
+ * Transaction review table with AI category assignment and inline editing.
  *
- * Renders all parsed transactions in a table with per-row category dropdowns.
- * Supports three overlay states driven by the parent:
+ * Renders all parsed transactions in a table with per-row category dropdowns
+ * and inline editing for payee and notes. A summary footer row shows total
+ * debits, credits, and net amount.
+ *
+ * Overlay states driven by the parent:
  * - "loading"  — semi-transparent overlay with spinner while AI call is in-flight
  * - "error"    — dismissible error banner; all dropdowns remain editable for manual entry
  * - "idle"/"done" — normal interactive table
  *
- * This component is display-only; category state is managed by the parent
- * via `categoryMap` + `onCategoryChange`.
+ * This component is display-only; all state is managed by the parent.
  */
 
 import * as React from "react";
@@ -45,11 +47,54 @@ export interface TransactionTableProps {
    * @param category - Newly selected category string.
    */
   onCategoryChange: (index: number, category: string) => void;
+  /**
+   * Optional callback fired when the user edits a payee name inline.
+   *
+   * @param index - 0-based transaction index.
+   * @param payee - Updated payee string.
+   */
+  onPayeeChange?: (index: number, payee: string) => void;
+  /**
+   * Optional callback fired when the user edits notes inline.
+   *
+   * @param index - 0-based transaction index.
+   * @param notes - Updated notes string.
+   */
+  onNotesChange?: (index: number, notes: string) => void;
 }
 
 // ---------------------------------------------------------------------------
-// Helper
+// Pure helpers — exported for unit testing
 // ---------------------------------------------------------------------------
+
+/**
+ * Compute summary totals from a list of transactions.
+ *
+ * @param transactions - Array of RawTransaction objects.
+ * @returns Object with totalDebits (≤ 0), totalCredits (≥ 0), and net.
+ */
+export function computeSummary(transactions: RawTransaction[]): {
+  totalDebits: number;
+  totalCredits: number;
+  net: number;
+} {
+  let totalDebits = 0;
+  let totalCredits = 0;
+
+  for (const tx of transactions) {
+    if (tx.amount < 0) {
+      totalDebits += tx.amount;
+    } else {
+      totalCredits += tx.amount;
+    }
+  }
+
+  return {
+    totalDebits,
+    totalCredits,
+    net: totalCredits + totalDebits,
+  };
+}
 
 /**
  * Format a transaction amount for display with sign prefix and two decimal places.
@@ -77,11 +122,98 @@ function formatDate(date: Date): string {
 }
 
 // ---------------------------------------------------------------------------
-// Component
+// EditableCell sub-component
+// ---------------------------------------------------------------------------
+
+interface EditableCellProps {
+  value: string;
+  placeholder?: string;
+  onCommit: (value: string) => void;
+  className?: string;
+}
+
+/**
+ * A table cell that switches to an input on click.
+ * Commits on blur or Enter; cancels on Escape.
+ */
+function EditableCell({ value, placeholder = "—", onCommit, className }: EditableCellProps) {
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState(value);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  // Sync draft when the upstream value changes (e.g. after restore()).
+  React.useEffect(() => {
+    if (!editing) setDraft(value);
+  }, [value, editing]);
+
+  function startEdit() {
+    setDraft(value);
+    setEditing(true);
+  }
+
+  function commit() {
+    setEditing(false);
+    onCommit(draft);
+  }
+
+  function cancel() {
+    setEditing(false);
+    setDraft(value);
+  }
+
+  // Auto-focus the input when editing starts.
+  React.useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type="text"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") cancel();
+        }}
+        className={cn(
+          "w-full rounded border bg-background px-1.5 py-0.5 text-sm outline-none",
+          "focus:ring-2 focus:ring-ring focus:ring-offset-0",
+          className,
+        )}
+      />
+    );
+  }
+
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      onClick={startEdit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") startEdit();
+      }}
+      title="Click to edit"
+      className={cn(
+        "block cursor-text rounded px-1.5 py-0.5 hover:bg-accent/50",
+        !value && "text-muted-foreground/50",
+        className,
+      )}
+    >
+      {value || placeholder}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main component
 // ---------------------------------------------------------------------------
 
 /**
- * Transaction review table with per-row category dropdowns.
+ * Transaction review table with per-row category dropdowns, inline editing,
+ * and a summary footer row.
  *
  * @param props - See TransactionTableProps.
  */
@@ -91,7 +223,11 @@ export function TransactionTable({
   categoryMap,
   status,
   onCategoryChange,
+  onPayeeChange,
+  onNotesChange,
 }: TransactionTableProps) {
+  const summary = computeSummary(transactions);
+
   return (
     <div className="relative overflow-auto rounded-md border">
       {/* Loading overlay — shown while AI categorisation is in-flight */}
@@ -132,9 +268,43 @@ export function TransactionTable({
               categories={categories}
               selectedCategory={categoryMap.get(i) ?? ""}
               onCategoryChange={onCategoryChange}
+              onPayeeChange={onPayeeChange}
+              onNotesChange={onNotesChange}
             />
           ))}
         </tbody>
+
+        {/* Summary footer — only shown when there are transactions */}
+        {transactions.length > 0 && (
+          <tfoot>
+            <tr className="border-t-2 bg-muted/30 font-medium">
+              <td className="px-3 py-2 text-xs text-muted-foreground" colSpan={2}>
+                Summary ({transactions.length} transactions)
+              </td>
+              <td className="px-3 py-2 text-right tabular-nums">
+                <div className="flex flex-col items-end gap-0.5">
+                  <span className="text-xs text-red-600 dark:text-red-400">
+                    {formatAmount(summary.totalDebits)}
+                  </span>
+                  <span className="text-xs text-green-600 dark:text-green-400">
+                    {formatAmount(summary.totalCredits)}
+                  </span>
+                  <span
+                    className={cn(
+                      "text-xs font-bold",
+                      summary.net < 0
+                        ? "text-red-600 dark:text-red-400"
+                        : "text-green-600 dark:text-green-400",
+                    )}
+                  >
+                    Net: {formatAmount(summary.net)}
+                  </span>
+                </div>
+              </td>
+              <td colSpan={2} />
+            </tr>
+          </tfoot>
+        )}
       </table>
 
       {transactions.length === 0 && (
@@ -156,10 +326,12 @@ interface TransactionRowProps {
   categories: string[];
   selectedCategory: string;
   onCategoryChange: (index: number, category: string) => void;
+  onPayeeChange?: (index: number, payee: string) => void;
+  onNotesChange?: (index: number, notes: string) => void;
 }
 
 /**
- * A single transaction row with an inline category Select dropdown.
+ * A single transaction row with inline-editable payee/notes and a category dropdown.
  */
 function TransactionRow({
   index,
@@ -167,6 +339,8 @@ function TransactionRow({
   categories,
   selectedCategory,
   onCategoryChange,
+  onPayeeChange,
+  onNotesChange,
 }: TransactionRowProps) {
   const isDebit = transaction.amount < 0;
 
@@ -177,8 +351,17 @@ function TransactionRow({
         {formatDate(transaction.date)}
       </td>
 
-      {/* Payee */}
-      <td className="px-3 py-2 font-medium">{transaction.description}</td>
+      {/* Payee — inline editable when onPayeeChange is provided */}
+      <td className="px-3 py-2 font-medium">
+        {onPayeeChange ? (
+          <EditableCell
+            value={transaction.description}
+            onCommit={(val) => onPayeeChange(index, val)}
+          />
+        ) : (
+          transaction.description
+        )}
+      </td>
 
       {/* Amount — red for debits, green for credits */}
       <td
@@ -233,9 +416,18 @@ function TransactionRow({
         </Select.Root>
       </td>
 
-      {/* Notes */}
+      {/* Notes — inline editable when onNotesChange is provided */}
       <td className="px-3 py-2 text-muted-foreground">
-        {transaction.notes || "—"}
+        {onNotesChange ? (
+          <EditableCell
+            value={transaction.notes}
+            placeholder="—"
+            onCommit={(val) => onNotesChange(index, val)}
+            className="text-muted-foreground"
+          />
+        ) : (
+          transaction.notes || "—"
+        )}
       </td>
     </tr>
   );
