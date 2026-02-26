@@ -134,35 +134,56 @@ GEMINI_API_KEY=your-key docker compose up
 
 ## Google Cloud Run Deployment
 
+> **Free tier:** Use `us-central1` to stay within Cloud Run's always-free quota — 2 million requests, 360,000 GB-seconds of memory, and 180,000 vCPU-seconds per month. With `--min-instances=0` the service scales to zero when idle, so you pay nothing during quiet periods.
+
+> **Note:** `gcr.io` (Google Container Registry) is deprecated. Use **Artifact Registry** (`REGION-docker.pkg.dev`) instead.
+
 ### Prerequisites
 
 - [Google Cloud SDK](https://cloud.google.com/sdk/docs/install) (`gcloud`) installed and authenticated
-- A GCP project with Cloud Run and Artifact Registry APIs enabled
+- A GCP project with **Cloud Run** and **Artifact Registry** APIs enabled:
+  ```bash
+  gcloud services enable run.googleapis.com artifactregistry.googleapis.com
+  ```
 
 ### Steps
 
 ```bash
-# 1. Set your project and region
+# 1. Set your project — use us-central1 for the free tier
 export PROJECT_ID=your-gcp-project-id
-export REGION=asia-southeast1
-export IMAGE=gcr.io/$PROJECT_ID/lunchprep
+export REGION=us-central1
+export REPO=lunchprep
+export IMAGE=$REGION-docker.pkg.dev/$PROJECT_ID/$REPO/lunchprep
 
-# 2. Build and push the image to Google Artifact Registry
-gcloud builds submit --tag $IMAGE
+# 2. Create the Artifact Registry repository (one-time setup)
+gcloud artifacts repositories create $REPO \
+  --repository-format=docker \
+  --location=$REGION
 
-# 3. Deploy to Cloud Run
+# 3. Authenticate Docker with Artifact Registry
+gcloud auth configure-docker $REGION-docker.pkg.dev
+
+# 4. Build and push the image
+docker build -t $IMAGE .
+docker push $IMAGE
+
+# 5. Deploy to Cloud Run (scales to zero, 512 MB is plenty for this app)
 gcloud run deploy lunchprep \
   --image $IMAGE \
   --platform managed \
   --region $REGION \
   --allow-unauthenticated \
   --port 3000 \
+  --memory 512Mi \
+  --cpu 1 \
+  --min-instances 0 \
+  --max-instances 2 \
   --set-env-vars "GEMINI_API_KEY=your-api-key-here,RATE_LIMIT_RPM=20"
 ```
 
 Cloud Run automatically handles:
 - HTTPS termination
-- Scaling to zero when idle (cost-effective for personal use)
+- Scaling to zero when idle (`--min-instances=0`) — no charges between visits
 - Health checks on `HOSTNAME=0.0.0.0:3000` (configured in the Dockerfile)
 
 ---
