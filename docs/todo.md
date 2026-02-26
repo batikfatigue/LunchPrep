@@ -91,6 +91,13 @@
 
 ---
 
+## Discovered During Work
+
+**Bug Fixes**
+- [x] Fix BYOK key serialisation mismatch: `getBYOKKey`/`setBYOKKey` used raw strings while `useLocalStorage` used JSON — caused server proxy to never be reached (JSON-serialised empty string `'""'` was truthy)
+
+---
+
 ## Success Criteria (MVP)
 - [ ] Upload DBS CSV → download valid Lunch Money CSV
 - [ ] AI categorisation accuracy > 80% on common merchants
