@@ -11,52 +11,52 @@
 - [x] Configure base layout (`layout.tsx`) and shell structure
 
 **Parser: Core**
-- [ ] Define `RawTransaction` and `BankParser` TypeScript interfaces (`src/lib/parsers/types.ts`)
-- [ ] Implement parser registry with `detectAndParse()` (`src/lib/parsers/registry.ts`)
+- [x] Define `RawTransaction` and `BankParser` TypeScript interfaces (`src/lib/parsers/types.ts`)
+- [x] Implement parser registry with `detectAndParse()` (`src/lib/parsers/registry.ts`)
 
 **Parser: DBS**
-- [ ] Skip header rows 1–6; parse column headers on row 7
-- [ ] Parse `Transaction Date` (`23 Feb 2026` → `2026-02-23`)
-- [ ] Parse `Debit Amount` / `Credit Amount` into signed float, rounded to 2 d.p.
-- [ ] Clean `POS` transactions: strip `NETS QR PAYMENT <ref> TO:`, extract merchant name
-- [ ] Clean `MST` transactions: extract name before `SI SGP`, strip card number and trailing ref
-- [ ] Clean `ICT` transactions: extract `From:`/`To:` name, extract `OTHR` field as notes
-- [ ] Clean `ITR` transactions: label as `PayLah!`, strip phone number and transaction ref
-- [ ] Strip residual PII: card number pattern `\d{4}-\d{4}-\d{4}-\d{4}`, numeric reference codes
+- [x] Skip header rows 1–6; parse column headers on row 7
+- [x] Parse `Transaction Date` (`23 Feb 2026` → `2026-02-23`)
+- [x] Parse `Debit Amount` / `Credit Amount` into signed float, rounded to 2 d.p.
+- [x] Clean `POS` transactions: strip `NETS QR PAYMENT <ref> TO:`, extract merchant name
+- [x] Clean `MST` transactions: extract name before `SI SGP`, strip card number and trailing ref
+- [x] Clean `ICT` transactions: extract `From:`/`To:` name, extract `OTHR` field as notes
+- [x] Clean `ITR` transactions: label as `PayLah!`, strip phone number and transaction ref
+- [x] Strip residual PII: card number pattern `\d{4}-\d{4}-\d{4}-\d{4}`, numeric reference codes
 
 **Export**
-- [ ] Generate Lunch Money CSV string from `RawTransaction[]` (`src/lib/exporter/lunchmoney.ts`)
-- [ ] Trigger browser file download with filename `lunchprep-export-YYYY-MM-DD.csv`
+- [x] Generate Lunch Money CSV string from `RawTransaction[]` (`src/lib/exporter/lunchmoney.ts`)
+- [x] Trigger browser file download with filename `lunchprep-export-YYYY-MM-DD.csv`
 
 **Tests**
-- [ ] Unit tests for DBS parser (one test case per transaction code + edge cases)
-- [ ] Unit tests for Lunch Money CSV exporter (correct columns, signs, date format)
+- [x] Unit tests for DBS parser (one test case per transaction code + edge cases)
+- [x] Unit tests for Lunch Money CSV exporter (correct columns, signs, date format)
 
 ---
 
 ## Phase 2: AI Integration 🤖
 
 **Anonymisation**
-- [ ] Detect personal names in ICT `From:`/`To:` and ITR fields
-- [ ] Build placeholder map `{ "Person A": "REAL NAME" }` in client memory
-- [ ] Replace names with placeholders before API call; restore in final output
+- [x] Detect personal names in ICT `From:`/`To:` and ITR fields
+- [x] Build placeholder map `{ "Person A": "REAL NAME" }` in client memory
+- [x] Replace names with placeholders before API call; restore in final output
 
 **Gemini Proxy**
-- [ ] Implement `POST /api/categorise` route (`src/app/api/categorise/route.ts`)
-- [ ] Add IP-based rate limiting (default: 10 RPM)
-- [ ] Build Gemini prompt with transaction list + category enum (`src/lib/categoriser/prompt.ts`)
-- [ ] Configure Gemini: `gemini-2.5-flash-lite`, temperature `0.0`, structured JSON output
-- [ ] Validate and parse Gemini response; return `{ results: [{ index, category }] }`
+- [x] Implement `POST /api/categorise` route (`src/app/api/categorise/route.ts`)
+- [x] Add IP-based rate limiting (default: 10 RPM)
+- [x] Build Gemini prompt with transaction list + category enum (`src/lib/categoriser/prompt.ts`)
+- [x] Configure Gemini: `gemini-2.5-flash-lite`, temperature `0.0`, structured JSON output
+- [x] Validate and parse Gemini response; return `{ results: [{ index, category }] }`
 
 **UI**
-- [ ] Define default category list (`src/lib/categoriser/categories.ts`)
-- [ ] Add category dropdown column to transaction review table
-- [ ] Show loading spinner during API call
-- [ ] Show error state with manual categorisation fallback if API call fails
+- [x] Define default category list (`src/lib/categoriser/categories.ts`)
+- [x] Add category dropdown column to transaction review table
+- [x] Show loading spinner during API call
+- [x] Show error state with manual categorisation fallback if API call fails
 
 **Tests**
-- [ ] Unit tests for name anonymiser (detection, mapping, restoration)
-- [ ] Unit tests for prompt builder (correct format, category injection)
+- [x] Unit tests for name anonymiser (detection, mapping, restoration)
+- [x] Unit tests for prompt builder (correct format, category injection)
 
 ---
 
