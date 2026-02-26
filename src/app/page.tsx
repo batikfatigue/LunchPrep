@@ -12,6 +12,7 @@
 import * as React from "react";
 import { RefreshCw, Download, Sparkles } from "lucide-react";
 
+import { LandingHero } from "@/components/landing-hero";
 import { PipelineSteps, type PipelineStep } from "@/components/pipeline-steps";
 import { FileUpload } from "@/components/file-upload";
 import { ApiKeyInput } from "@/components/api-key-input";
@@ -221,7 +222,11 @@ export default function Home() {
       {/* Step: Upload                                                        */}
       {/* ----------------------------------------------------------------- */}
       {step === "upload" && (
-        <div className="grid gap-6 lg:grid-cols-3">
+        <>
+          {/* Explainer hero — shown only on the initial upload step */}
+          <LandingHero />
+
+          <div className="grid gap-6 lg:grid-cols-3">
           {/* Upload zone — spans 2 columns on large screens */}
           <div className="lg:col-span-2">
             <Card>
@@ -257,6 +262,7 @@ export default function Home() {
             </Card>
           </div>
         </div>
+        </>
       )}
 
       {/* ----------------------------------------------------------------- */}
