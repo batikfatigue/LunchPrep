@@ -47,26 +47,42 @@ interface ProxyRequestBody {
 /**
  * Retrieve the user's BYOK Gemini API key from localStorage.
  *
- * Returns null in non-browser environments or when no key is stored.
+ * Returns null in non-browser environments, when no key is stored, or when
+ * the stored value is an empty string. Handles both JSON-serialised values
+ * (written by useLocalStorage) and legacy raw strings for backwards compat.
  *
  * @returns API key string, or null if not set.
  */
 export function getBYOKKey(): string | null {
   if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(BYOK_STORAGE_KEY);
+  const raw = window.localStorage.getItem(BYOK_STORAGE_KEY);
+  if (raw === null) return null;
+  try {
+    // Reason: useLocalStorage writes JSON.stringify(value), so the stored
+    // empty string is '""' (2 quote chars). We must JSON.parse to get the
+    // real value, then treat empty strings as "no key".
+    const parsed = JSON.parse(raw);
+    return typeof parsed === "string" && parsed.length > 0 ? parsed : null;
+  } catch {
+    // Legacy raw string (not JSON-wrapped) — return as-is if non-empty.
+    return raw.length > 0 ? raw : null;
+  }
 }
 
 /**
  * Store a BYOK Gemini API key in localStorage.
  *
- * @param key - Gemini API key to store. Pass null to clear.
+ * Uses JSON.stringify to match the serialisation format of useLocalStorage.
+ * Passing null or an empty string removes the entry entirely.
+ *
+ * @param key - Gemini API key to store. Pass null or "" to clear.
  */
 export function setBYOKKey(key: string | null): void {
   if (typeof window === "undefined") return;
-  if (key === null) {
+  if (key === null || key === "") {
     window.localStorage.removeItem(BYOK_STORAGE_KEY);
   } else {
-    window.localStorage.setItem(BYOK_STORAGE_KEY, key);
+    window.localStorage.setItem(BYOK_STORAGE_KEY, JSON.stringify(key));
   }
 }
 
