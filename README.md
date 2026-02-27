@@ -10,8 +10,12 @@ Convert Singapore bank statement CSVs into clean, import-ready files for **Lunch
 <img alt="for: Lunch Money" src="https://img.shields.io/badge/for-Lunch%20Money-00A86B" />
 <img alt="AI: Google Gemini" src="https://img.shields.io/badge/AI-Google%20Gemini-4285F4" />
 <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6" />
+<img alt="Status: Beta" src="https://img.shields.io/badge/status-beta-orange" />
 
 </div>
+
+> [!WARNING]
+> **Use at your own risk.** This tool is currently in **Beta** and provided "as is" without warranty of any kind. While it is designed with privacy in mind (client-side processing), you are responsible for the security of your own bank statements and API keys. Always verify the output before importing into Lunch Money.
 
 ---
 
@@ -160,14 +164,10 @@ gcloud artifacts repositories create $REPO \
   --repository-format=docker \
   --location=$REGION
 
-# 3. Authenticate Docker with Artifact Registry
-gcloud auth configure-docker $REGION-docker.pkg.dev
+# 3. Build and push the image using Cloud Build (no local Docker required)
+gcloud builds submit --tag $IMAGE .
 
-# 4. Build and push the image
-docker build -t $IMAGE .
-docker push $IMAGE
-
-# 5. Deploy to Cloud Run (scales to zero, 512 MB is plenty for this app)
+# 4. Deploy to Cloud Run (scales to zero, 512 MB is plenty for this app)
 gcloud run deploy lunchprep \
   --image $IMAGE \
   --platform managed \

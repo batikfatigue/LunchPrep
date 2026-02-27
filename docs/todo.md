@@ -99,7 +99,7 @@
 ---
 
 ## Success Criteria (MVP)
-- [ ] Upload DBS CSV → download valid Lunch Money CSV
-- [ ] AI categorisation accuracy > 80% on common merchants
+- [x] Upload DBS CSV → download valid Lunch Money CSV
+- [x] AI categorisation accuracy > 80% on common merchants
 - [ ] No financial data logged or stored server-side
-- [ ] Full pipeline completes in < 2 minutes
+- [x] Full pipeline completes in < 2 minutes
