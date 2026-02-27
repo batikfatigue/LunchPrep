@@ -8,7 +8,7 @@
 - Skip rows 1–6 (account/balance headers); row 7 = column headers
 - Columns: `Transaction Date | Transaction Code | Description | Ref1 | Ref2 | Ref3 | Status | Debit Amount | Credit Amount`
 - Date: `23 Feb 2026` → `2026-02-23`
-- Amounts: Debit = negative, Credit = positive; round to 2 d.p.
+- Amounts: Debit = positive, Credit = negative; round to 2 d.p.
 
 ## Transaction Code Lookup 
 - `src/lib/parsers/data/dbs_codes.json` — Static JSON dictionary mapping 928 DBS transaction codes to descriptions (e.g., `{"POS": "Point of Sale", "ITR": "Inward Transfer"}`).
