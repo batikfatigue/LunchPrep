@@ -36,4 +36,3 @@ For implementation details, refer to:
 - **[specs/bank-parsing.md](../specs/bank-parsing.md)**: Deep dive into parser rules.
 - **[specs/ai-categorisation.md](../specs/ai-categorisation.md)**: AI and anonymisation logic.
 - **[specs/export.md](../specs/export.md)**: Export format requirements.
-- **[todo.md](./todo.md)**: Active development tasks.
