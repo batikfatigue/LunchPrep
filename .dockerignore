@@ -26,6 +26,7 @@ coverage
 .agents
 .DS_Store
 Thumbs.db
+src/dev-tools/
 
 # --- Project docs & non-runtime files ---
 PRPs
