@@ -15,7 +15,11 @@
 import * as React from "react";
 import type { RawTransaction } from "@/lib/parsers/types";
 import type { DebugData } from "@/lib/categoriser/client";
-import { buildReviewMarkdown, downloadReviewMarkdown } from "./export";
+import {
+  buildReviewMarkdown,
+  downloadReviewMarkdown,
+  extractTransactionPayload,
+} from "./export";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -514,20 +518,7 @@ function ReviewTable({
           const dateStr = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 
           // Extract row-specific API Payload (exclude valid_categories)
-          let parsedPayload = null;
-          try {
-            if (debugData?.rawPayload) {
-              const fullPayload = JSON.parse(debugData.rawPayload);
-              const matchedTx = fullPayload.transactions?.find((t: any) => t.index === absoluteIndex);
-              if (matchedTx) {
-                // Remove the internal 'index' before displaying
-                const { index, ...rest } = matchedTx;
-                parsedPayload = JSON.stringify(rest, null, 2);
-              }
-            }
-          } catch (e) {
-            // fallback if failed to parse
-          }
+          const parsedPayload = extractTransactionPayload(debugData?.rawPayload, absoluteIndex);
 
           // Row-specific JSON Output
           const parsedOutput = category !== "—" ? JSON.stringify({ category }, null, 2) : "";
