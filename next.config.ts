@@ -1,14 +1,30 @@
 import type { NextConfig } from "next";
 
+// Reason: When dev-tools are disabled (production), Turbopack still resolves
+// all import() paths even inside dead-code ternaries. Since .vercelignore
+// physically excludes src/dev-tools/, we alias those imports to an empty stub
+// so the resolver succeeds and the ternary discards the result at runtime.
+const devToolsAliases: Record<string, string> =
+  process.env.NEXT_PUBLIC_DEV_TOOLS === "true"
+    ? {}
+    : {
+        "@/dev-tools/_bootstrap": "./src/lib/empty-module.ts",
+        "@/dev-tools/categorisation-debugger":
+          "./src/lib/empty-module.ts",
+      };
+
 const nextConfig: NextConfig = {
   // Reason: standalone output bundles only the required files for production,
   // enabling a minimal Docker image (~150 MB) without the full node_modules tree.
   output: "standalone",
 
-  // Next.js 16 uses Turbopack by default for dev. The webpack config below
-  // only applies to production builds (`next build`). An empty turbopack
-  // config signals this is intentional.
-  turbopack: {},
+  // Turbopack config: resolveAlias redirects excluded dev-tools to a no-op
+  // stub in production deployments (see devToolsAliases above).
+  turbopack: {
+    resolveAlias: {
+      ...devToolsAliases,
+    },
+  },
 
   webpack: (config, { webpack }) => {
     // Failsafe: reject ANY import from src/dev-tools/ during production builds.
