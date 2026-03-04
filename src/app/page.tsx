@@ -10,6 +10,7 @@
  */
 
 import * as React from "react";
+import dynamic from "next/dynamic";
 import { RefreshCw, Download, Sparkles } from "lucide-react";
 
 import { LandingHero } from "@/components/landing-hero";
@@ -29,9 +30,21 @@ import { useLocalStorage } from "@/hooks/use-local-storage";
 import { detectAndParse } from "@/lib/parsers/registry";
 import { anonymise, restore } from "@/lib/anonymiser/pii";
 import { callCategorise } from "@/lib/categoriser/client";
+import type { DebugData } from "@/lib/categoriser/client";
 import { DEFAULT_CATEGORIES } from "@/lib/categoriser/categories";
 import { generateLunchMoneyCsv, downloadCsv } from "@/lib/exporter/lunchmoney";
 import type { RawTransaction } from "@/lib/parsers/types";
+
+// ---------------------------------------------------------------------------
+// Dev-only import: conditionally loaded, dead-code eliminated in production
+// ---------------------------------------------------------------------------
+
+// Reason: Same pattern as _bootstrap.tsx in layout — the ternary is evaluated
+// at build time by Next.js, so the entire import is stripped in production.
+const CategorisationDebuggerDevTool =
+  process.env.NEXT_PUBLIC_DEV_TOOLS === "true"
+    ? dynamic(() => import("@/dev-tools/categorisation-debugger"))
+    : null;
 
 // ---------------------------------------------------------------------------
 // Page component (default export required by Next.js)
@@ -64,6 +77,9 @@ export default function Home() {
   );
   const [catStatus, setCatStatus] = React.useState<CategorisationStatus>("idle");
   const [parseError, setParseError] = React.useState<string | null>(null);
+  // Dev-mode only: debug data from the categorisation API (reasoning + raw payload).
+  // Stays null in production since the API never returns debug data there.
+  const [debugData, setDebugData] = React.useState<DebugData | null>(null);
 
   // ---------------------------------------------------------------------------
   // Handlers
@@ -104,13 +120,14 @@ export default function Home() {
       const anonymised = anonymise(txs);
       // Reason: Pass apiKey only when non-empty; callCategorise() will fall
       // back to reading from localStorage via getBYOKKey() when undefined.
-      const results = await callCategorise(
+      const { results, debug } = await callCategorise(
         anonymised,
         categories,
         apiKey || undefined,
       );
       const restored = restore(anonymised);
       setTransactions(restored);
+      if (debug) setDebugData(debug);
 
       const map = new Map<number, string>();
       for (const r of results) {
@@ -142,6 +159,7 @@ export default function Home() {
     setCategoryMap(new Map());
     setCatStatus("idle");
     setParseError(null);
+    setDebugData(null);
     setStep("upload");
   }
 
@@ -227,41 +245,41 @@ export default function Home() {
           <LandingHero />
 
           <div className="grid gap-6 lg:grid-cols-3">
-          {/* Upload zone — spans 2 columns on large screens */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Upload your bank CSV</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <FileUpload
-                  onFileSelect={handleFileSelect}
-                  error={parseError}
-                />
-              </CardContent>
-            </Card>
-          </div>
+            {/* Upload zone — spans 2 columns on large screens */}
+            <div className="lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Upload your bank CSV</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <FileUpload
+                    onFileSelect={handleFileSelect}
+                    error={parseError}
+                  />
+                </CardContent>
+              </Card>
+            </div>
 
-          {/* Settings sidebar */}
-          <div className="flex flex-col gap-4">
-            <Card>
-              <CardContent className="pt-6">
-                <ApiKeyInput
-                  apiKey={apiKey}
-                  onApiKeyChange={handleApiKeyChange}
-                />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <CategoryEditor
-                  categories={categories}
-                  onCategoriesChange={handleCategoriesChange}
-                />
-              </CardContent>
-            </Card>
+            {/* Settings sidebar */}
+            <div className="flex flex-col gap-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <ApiKeyInput
+                    apiKey={apiKey}
+                    onApiKeyChange={handleApiKeyChange}
+                  />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <CategoryEditor
+                    categories={categories}
+                    onCategoriesChange={handleCategoriesChange}
+                  />
+                </CardContent>
+              </Card>
+            </div>
           </div>
-        </div>
         </>
       )}
 
@@ -299,6 +317,14 @@ export default function Home() {
                 <RefreshCw className="size-4" />
                 Start Over
               </Button>
+              {/* Dev-only: categorisation debugger trigger — tree-shaken in production */}
+              {CategorisationDebuggerDevTool && (
+                <CategorisationDebuggerDevTool
+                  transactions={transactions}
+                  categoryMap={categoryMap}
+                  debugData={debugData}
+                />
+              )}
             </div>
           </div>
 

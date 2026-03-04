@@ -30,6 +30,16 @@ Rules:
 3. If it looks like a person-to-person transfer (e.g., PayNow to a generic name) and no context is provided, default to "Transfers".
 4. Output strict JSON only.`;
 
+/**
+ * System instruction used in development mode only (when NEXT_PUBLIC_DEV_TOOLS is true).
+ *
+ * Extends the base instruction to also request a brief reasoning field per
+ * transaction, surfaced in the categorisation debugger dev tool for analysis.
+ */
+export const DEV_SYSTEM_INSTRUCTION = `${SYSTEM_INSTRUCTION}
+
+Dev mode: for each transaction also include a concise "reasoning" field (1–2 sentences) explaining the key signals that led to the chosen category.`;
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------

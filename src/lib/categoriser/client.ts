@@ -29,6 +29,23 @@ export interface CategorisationResult {
   category: string;
 }
 
+/**
+ * Debug data returned alongside categorisation results in dev mode.
+ * Only populated when NEXT_PUBLIC_DEV_TOOLS === 'true'.
+ */
+export interface DebugData {
+  /** The exact JSON string that was sent as the user prompt to Gemini. */
+  rawPayload: string;
+  /** Per-transaction reasoning strings from Gemini (one entry per transaction). */
+  perTransaction: Array<{ index: number; reasoning: string }>;
+}
+
+/** Full response from callCategorise, including optional dev-mode debug data. */
+export interface CategoriseResponse {
+  results: CategorisationResult[];
+  debug?: DebugData;
+}
+
 /** Shape of the request body sent to /api/categorise. */
 interface ProxyRequestBody {
   transactions: Array<{
@@ -38,6 +55,12 @@ interface ProxyRequestBody {
     transactionType: string;
   }>;
   categories: string[];
+}
+
+/** Shape of the JSON response from /api/categorise. */
+interface ProxyResponseBody {
+  results: CategorisationResult[];
+  debug?: DebugData;
 }
 
 // ---------------------------------------------------------------------------
@@ -104,7 +127,7 @@ export function setBYOKKey(key: string | null): void {
  * @param categories - Category list. Defaults to DEFAULT_CATEGORIES.
  * @param byokKey - Explicit API key override (useful for testing). If omitted,
  *   reads from localStorage via getBYOKKey().
- * @returns Array of { index, category } results.
+ * @returns Object with `results` array and optional `debug` data (dev mode only).
  * @throws Error with message "RATE_LIMITED:<retryAfter>" on HTTP 429.
  * @throws Error with message "SERVER_ERROR" on HTTP 500 or Gemini SDK failure.
  */
@@ -112,11 +135,12 @@ export async function callCategorise(
   transactions: RawTransaction[],
   categories: string[] = DEFAULT_CATEGORIES,
   byokKey?: string,
-): Promise<CategorisationResult[]> {
+): Promise<CategoriseResponse> {
   const key = byokKey ?? getBYOKKey();
 
   if (key) {
-    return callGeminoDirect(transactions, categories, key);
+    const results = await callGeminoDirect(transactions, categories, key);
+    return { results };
   }
   return callProxy(transactions, categories);
 }
@@ -128,14 +152,18 @@ export async function callCategorise(
 /**
  * Call /api/categorise server proxy.
  *
+ * In dev mode (NEXT_PUBLIC_DEV_TOOLS === 'true'), the proxy returns additional
+ * debug data (raw payload + per-transaction reasoning) which is forwarded to
+ * the caller as `debug`.
+ *
  * @param transactions - Anonymised transactions.
  * @param categories - Category list.
- * @returns Categorisation results from the proxy.
+ * @returns Categorisation results, plus optional debug data in dev mode.
  */
 async function callProxy(
   transactions: RawTransaction[],
   categories: string[],
-): Promise<CategorisationResult[]> {
+): Promise<CategoriseResponse> {
   const body: ProxyRequestBody = {
     transactions: transactions.map((tx, i) => ({
       index: i,
@@ -161,8 +189,8 @@ async function callProxy(
     throw new Error("SERVER_ERROR");
   }
 
-  const data = (await res.json()) as { results: CategorisationResult[] };
-  return data.results;
+  const data = (await res.json()) as ProxyResponseBody;
+  return { results: data.results, debug: data.debug };
 }
 
 // ---------------------------------------------------------------------------
