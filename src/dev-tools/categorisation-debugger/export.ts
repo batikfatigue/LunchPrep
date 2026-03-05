@@ -39,7 +39,8 @@ export function extractTransactionPayload(
     );
     if (!matched) return null;
     // Reason: Remove `index` — it's an internal routing field, not useful in the report.
-    const { index: _idx, ...rest } = matched;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { index: _index, ...rest } = matched;
     return JSON.stringify(rest, null, 2);
   } catch {
     return null;

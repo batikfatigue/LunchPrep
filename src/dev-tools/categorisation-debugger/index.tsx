@@ -598,23 +598,7 @@ function ReviewTable({
                   }}
                 >
                   {reasoning ? (
-                    <span
-                      style={{
-                        display: "-webkit-box",
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical" as
-                          | "vertical"
-                          | "horizontal"
-                          | "inline-axis"
-                          | "block-axis"
-                          | "inherit"
-                          | "initial"
-                          | "revert"
-                          | "revert-layer"
-                          | "unset",
-                        overflow: "hidden",
-                      }}
-                    >
+                    <span style={{ whiteSpace: "pre-wrap" }}>
                       {reasoning}
                     </span>
                   ) : (
