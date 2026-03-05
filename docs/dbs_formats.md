@@ -1,5 +1,7 @@
 # DBS Transaction Format Reference
 
+These are for only known formats. There are many more formats that we have not seen yet.
+
 Reference of how DBS structures the `Ref1`, `Ref2`, and `Ref3` CSV columns for each transaction code and sub-type. Use this when writing or updating parser cleaning rules.
 
 > DBS may change these formats at any time. Last verified 25 Feb 2026.
