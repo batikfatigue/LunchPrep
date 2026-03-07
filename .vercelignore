@@ -1,0 +1,6 @@
+# ============================================================
+# .vercelignore — files excluded from Vercel deployments
+# ============================================================
+
+# Dev-tools: physically exclude from deployment artifacts
+src/dev-tools/

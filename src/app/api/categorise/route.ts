@@ -17,7 +17,8 @@
  */
 
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
-import { SYSTEM_INSTRUCTION } from "@/lib/categoriser/prompt";
+import type { ObjectSchema } from "@google/generative-ai";
+import { SYSTEM_INSTRUCTION, DEV_SYSTEM_INSTRUCTION } from "@/lib/categoriser/prompt";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -42,6 +43,21 @@ interface CategorisationResult {
   index: number;
   category: string;
 }
+
+/**
+ * Extended result shape returned by Gemini when dev-mode reasoning is requested.
+ * The `reasoning` field is stripped before sending back the public results array.
+ */
+interface DevCategorisationResult extends CategorisationResult {
+  reasoning: string;
+}
+
+// ---------------------------------------------------------------------------
+// Dev-mode flag (evaluated at build time by Next.js bundler — dead code
+// elimination removes the dev branch entirely in production builds)
+// ---------------------------------------------------------------------------
+
+const IS_DEV_MODE = process.env.NEXT_PUBLIC_DEV_TOOLS === "true";
 
 // ---------------------------------------------------------------------------
 // Rate limiter (in-memory, per-process singleton)
@@ -158,22 +174,38 @@ export async function POST(req: Request): Promise<Response> {
   // 4. Call Gemini with structured output
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
+
+    // Reason: In dev mode, the schema is extended with a `reasoning` field so
+    // Gemini explains each categorisation decision. This field is never added
+    // in production to avoid extra cost and latency.
+    const prodResultSchema: ObjectSchema = {
+      type: SchemaType.OBJECT,
+      properties: {
+        index: { type: SchemaType.INTEGER },
+        category: { type: SchemaType.STRING },
+      },
+      required: ["index", "category"],
+    };
+
+    const devResultSchema: ObjectSchema = {
+      type: SchemaType.OBJECT,
+      properties: {
+        index: { type: SchemaType.INTEGER },
+        category: { type: SchemaType.STRING },
+        reasoning: { type: SchemaType.STRING },
+      },
+      required: ["index", "category", "reasoning"],
+    };
+
     const model = genAI.getGenerativeModel({
       model: process.env.GEMINI_MODEL ?? "gemini-2.5-flash-lite",
-      systemInstruction: SYSTEM_INSTRUCTION,
+      systemInstruction: IS_DEV_MODE ? DEV_SYSTEM_INSTRUCTION : SYSTEM_INSTRUCTION,
       generationConfig: {
         temperature: 0.0,
         responseMimeType: "application/json",
         responseSchema: {
           type: SchemaType.ARRAY,
-          items: {
-            type: SchemaType.OBJECT,
-            properties: {
-              index: { type: SchemaType.INTEGER },
-              category: { type: SchemaType.STRING },
-            },
-            required: ["index", "category"],
-          },
+          items: IS_DEV_MODE ? devResultSchema : prodResultSchema,
         },
       },
     });
@@ -190,8 +222,26 @@ export async function POST(req: Request): Promise<Response> {
 
     const result = await model.generateContent(userPrompt);
     const text = result.response.text();
-    const results = JSON.parse(text) as CategorisationResult[];
 
+    if (IS_DEV_MODE) {
+      const devResults = JSON.parse(text) as DevCategorisationResult[];
+      const results: CategorisationResult[] = devResults.map(({ index, category }) => ({
+        index,
+        category,
+      }));
+      return Response.json(
+        {
+          results,
+          debug: {
+            rawPayload: userPrompt,
+            perTransaction: devResults.map(({ index, reasoning }) => ({ index, reasoning })),
+          },
+        },
+        { status: 200 },
+      );
+    }
+
+    const results = JSON.parse(text) as CategorisationResult[];
     return Response.json({ results }, { status: 200 });
   } catch (err) {
     console.error("[/api/categorise] Gemini API error:", err);
