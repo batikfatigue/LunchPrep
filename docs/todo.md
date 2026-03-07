@@ -37,26 +37,26 @@
 ## Phase 2: AI Integration 🤖
 
 **Anonymisation**
-- [ ] Detect personal names in ICT `From:`/`To:` and ITR fields
-- [ ] Build placeholder map `{ "Person A": "REAL NAME" }` in client memory
-- [ ] Replace names with placeholders before API call; restore in final output
+- [x] Detect personal names in ICT `From:`/`To:` and ITR fields
+- [x] Build placeholder map `{ "Person A": "REAL NAME" }` in client memory
+- [x] Replace names with placeholders before API call; restore in final output
 
 **Gemini Proxy**
-- [ ] Implement `POST /api/categorise` route (`src/app/api/categorise/route.ts`)
-- [ ] Add IP-based rate limiting (default: 10 RPM)
-- [ ] Build Gemini prompt with transaction list + category enum (`src/lib/categoriser/prompt.ts`)
-- [ ] Configure Gemini: `gemini-2.5-flash-lite`, temperature `0.0`, structured JSON output
-- [ ] Validate and parse Gemini response; return `{ results: [{ index, category }] }`
+- [x] Implement `POST /api/categorise` route (`src/app/api/categorise/route.ts`)
+- [x] Add IP-based rate limiting (default: 10 RPM)
+- [x] Build Gemini prompt with transaction list + category enum (`src/lib/categoriser/prompt.ts`)
+- [x] Configure Gemini: `gemini-2.5-flash-lite`, temperature `0.0`, structured JSON output
+- [x] Validate and parse Gemini response; return `{ results: [{ index, category }] }`
 
 **UI**
-- [ ] Define default category list (`src/lib/categoriser/categories.ts`)
-- [ ] Add category dropdown column to transaction review table
-- [ ] Show loading spinner during API call
-- [ ] Show error state with manual categorisation fallback if API call fails
+- [x] Define default category list (`src/lib/categoriser/categories.ts`)
+- [x] Add category dropdown column to transaction review table
+- [x] Show loading spinner during API call
+- [x] Show error state with manual categorisation fallback if API call fails
 
 **Tests**
-- [ ] Unit tests for name anonymiser (detection, mapping, restoration)
-- [ ] Unit tests for prompt builder (correct format, category injection)
+- [x] Unit tests for name anonymiser (detection, mapping, restoration)
+- [x] Unit tests for prompt builder (correct format, category injection)
 
 ---
 

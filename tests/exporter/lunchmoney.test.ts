@@ -89,6 +89,46 @@ describe("generateLunchMoneyCsv", () => {
     const csv = generateLunchMoneyCsv([makeTx()]);
     expect(csv.endsWith("\n")).toBe(true);
   });
+
+  it("populates category column when categoriesMap is provided", () => {
+    const txs = [
+      makeTx({ description: "Noodle House", amount: -9.3 }),
+      makeTx({ description: "Bus/Mrt", amount: -1.7 }),
+    ];
+    const catMap = new Map([
+      [0, "Dining"],
+      [1, "Transport"],
+    ]);
+    const csv = generateLunchMoneyCsv(txs, catMap);
+    const lines = csv.trim().split("\n");
+    expect(lines[1]).toBe("2026-02-23,Noodle House,-9.30,Dining,");
+    expect(lines[2]).toBe("2026-02-23,Bus/Mrt,-1.70,Transport,");
+  });
+
+  it("leaves category empty for indices not present in categoriesMap", () => {
+    const txs = [makeTx(), makeTx()];
+    const catMap = new Map([[0, "Dining"]]); // index 1 is not set
+    const csv = generateLunchMoneyCsv(txs, catMap);
+    const lines = csv.trim().split("\n");
+    const fields1 = lines[1].split(",");
+    const fields2 = lines[2].split(",");
+    expect(fields1[3]).toBe("Dining");
+    expect(fields2[3]).toBe(""); // category for index 1 is empty
+  });
+
+  it("escapes category values containing commas", () => {
+    const txs = [makeTx()];
+    const catMap = new Map([[0, "Food, Drink"]]);
+    const csv = generateLunchMoneyCsv(txs, catMap);
+    expect(csv).toContain('"Food, Drink"');
+  });
+
+  it("preserves backward compatibility when no categoriesMap is provided", () => {
+    const txs = [makeTx({ description: "Test", amount: -5.0 })];
+    const csv = generateLunchMoneyCsv(txs);
+    const fields = csv.trim().split("\n")[1].split(",");
+    expect(fields[3]).toBe(""); // category still empty when no map passed
+  });
 });
 
 // ---------------------------------------------------------------------------
