@@ -93,10 +93,10 @@ function parseAmount(debitStr: string, creditStr: string): number {
   const credit = creditStr.trim();
 
   if (debit !== "") {
-    return -Math.round(parseFloat(debit) * 100) / 100;
+    return Math.round(parseFloat(debit) * 100) / 100;
   }
   if (credit !== "") {
-    return Math.round(parseFloat(credit) * 100) / 100;
+    return -Math.round(parseFloat(credit) * 100) / 100;
   }
   throw new Error("Transaction has neither debit nor credit amount");
 }

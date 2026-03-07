@@ -44,14 +44,22 @@ function escapeCsvField(value: string): string {
  * Generate a Lunch Money-compatible CSV string from parsed transactions.
  *
  * @param transactions - Array of RawTransaction objects to export.
+ * @param categoriesMap - Optional map from transaction index (0-based) to
+ *   category string. If omitted, or if an index has no entry, the category
+ *   column is left blank (compatible with Phase 1 behaviour).
  * @returns CSV string with headers and one row per transaction.
  */
-export function generateLunchMoneyCsv(transactions: RawTransaction[]): string {
-  const rows = transactions.map((tx) => {
+export function generateLunchMoneyCsv(
+  transactions: RawTransaction[],
+  categoriesMap?: ReadonlyMap<number, string>,
+): string {
+  const rows = transactions.map((tx, i) => {
     const date = formatDate(tx.date);
     const payee = escapeCsvField(tx.description);
     const amount = tx.amount.toFixed(2);
-    const category = ""; // Reason: Category is empty in Phase 1 — filled by AI in Phase 2.
+    // Reason: Use provided category if available; fall back to empty string
+    // for backward compatibility with Phase 1 and manually-uncategorised rows.
+    const category = escapeCsvField(categoriesMap?.get(i) ?? "");
     const notes = escapeCsvField(tx.notes);
     return `${date},${payee},${amount},${category},${notes}`;
   });
