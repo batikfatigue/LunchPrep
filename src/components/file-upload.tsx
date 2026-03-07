@@ -167,7 +167,9 @@ export function FileUpload({ onFileSelect, isLoading = false, error }: FileUploa
           <>
             <Upload className="size-10 text-muted-foreground" />
             <div>
-              <p className="font-medium">Drop your CSV here</p>
+              <p className="font-medium">
+                {isDragOver ? "Drop your CSV here" : "Drop your CSV here"}
+              </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 or click to browse — accepts .csv files only
               </p>

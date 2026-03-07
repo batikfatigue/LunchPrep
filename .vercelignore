@@ -2,6 +2,5 @@
 # .vercelignore — files excluded from Vercel deployments
 # ============================================================
 
-# Dev-tools: NOT excluded here — Turbopack needs to resolve the import paths
-# at build time even though the build-time ternary (NEXT_PUBLIC_DEV_TOOLS)
-# ensures they are dead-code eliminated from the production bundle.
+# Dev-tools: physically exclude from deployment artifacts
+src/dev-tools/

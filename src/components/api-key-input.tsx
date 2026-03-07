@@ -45,15 +45,8 @@ export interface ApiKeyInputProps {
 export function ApiKeyInput({ apiKey, onApiKeyChange }: ApiKeyInputProps) {
   const [inputValue, setInputValue] = React.useState("");
   const [showKey, setShowKey] = React.useState(false);
-  const [mounted, setMounted] = React.useState(false);
 
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Defer to client-only to avoid SSR/client hydration mismatch
-  // (apiKey comes from localStorage which is unavailable during SSR).
-  const isActive = mounted && apiKey.trim().length > 0;
+  const isActive = apiKey.trim().length > 0;
 
   /** Persist the entered key to parent state and localStorage. */
   function handleSave() {

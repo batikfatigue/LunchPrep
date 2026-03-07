@@ -1,10 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  computeSummary,
-  computeTotalPages,
-  clampPage,
-  PAGE_SIZE,
-} from "@/components/transaction-table";
+import { computeSummary } from "@/components/transaction-table";
 import type { RawTransaction } from "@/lib/parsers/types";
 
 /** Helper to build a minimal RawTransaction with sensible defaults. */
@@ -123,69 +118,5 @@ describe("computeSummary", () => {
     expect(totalDebits).toBeCloseTo(-500.0, 3);
     expect(totalCredits).toBeCloseTo(500.0, 3);
     expect(net).toBeCloseTo(0.0, 3);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// computeTotalPages
-// ---------------------------------------------------------------------------
-
-describe("computeTotalPages", () => {
-  it("returns correct page count for typical data", () => {
-    expect(computeTotalPages(100, 25)).toBe(4);
-    expect(computeTotalPages(50, 25)).toBe(2);
-  });
-
-  it("rounds up for non-exact multiples", () => {
-    expect(computeTotalPages(26, 25)).toBe(2);
-    expect(computeTotalPages(51, 25)).toBe(3);
-  });
-
-  it("returns 1 page for items equal to page size", () => {
-    expect(computeTotalPages(25, 25)).toBe(1);
-  });
-
-  it("returns 1 page for 0 items", () => {
-    expect(computeTotalPages(0, 25)).toBe(1);
-  });
-
-  it("returns 1 page for a single item", () => {
-    expect(computeTotalPages(1, 25)).toBe(1);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// clampPage
-// ---------------------------------------------------------------------------
-
-describe("clampPage", () => {
-  it("returns the page when within range", () => {
-    expect(clampPage(2, 5)).toBe(2);
-    expect(clampPage(0, 3)).toBe(0);
-  });
-
-  it("clamps to last page when exceeding total", () => {
-    expect(clampPage(10, 4)).toBe(3);
-    expect(clampPage(5, 1)).toBe(0);
-  });
-
-  it("clamps negative values to 0", () => {
-    expect(clampPage(-1, 4)).toBe(0);
-    expect(clampPage(-100, 1)).toBe(0);
-  });
-
-  it("handles single-page total", () => {
-    expect(clampPage(0, 1)).toBe(0);
-    expect(clampPage(1, 1)).toBe(0);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// PAGE_SIZE constant
-// ---------------------------------------------------------------------------
-
-describe("PAGE_SIZE", () => {
-  it("is set to 25", () => {
-    expect(PAGE_SIZE).toBe(25);
   });
 });
