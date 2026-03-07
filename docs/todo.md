@@ -83,16 +83,23 @@
 
 ## Phase 4: Deployment 🚀
 
-- [ ] Configure Vercel deployment; set environment variables in dashboard
-- [ ] Write `Dockerfile` using `node:20-alpine` with `@sveltejs/adapter-node` (or Next.js standalone mode)
-- [ ] Write landing page section explaining the tool (above the upload UI)
-- [ ] Add `README.md` with self-hosting instructions (`docker run` command)
-- [ ] Open-source repository setup: `LICENSE` (MIT), `CONTRIBUTING.md`
+- [x] Configure Vercel deployment; set environment variables in dashboard
+- [x] Write `Dockerfile` using `node:20-alpine` with Next.js standalone mode
+- [x] Write landing page section explaining the tool (above the upload UI)
+- [x] Add `README.md` with self-hosting instructions (`docker run` command)
+- [x] Open-source repository setup: `LICENSE` (MIT), `CONTRIBUTING.md`
+
+---
+
+## Discovered During Work
+
+**Bug Fixes**
+- [x] Fix BYOK key serialisation mismatch: `getBYOKKey`/`setBYOKKey` used raw strings while `useLocalStorage` used JSON — caused server proxy to never be reached (JSON-serialised empty string `'""'` was truthy)
 
 ---
 
 ## Success Criteria (MVP)
-- [ ] Upload DBS CSV → download valid Lunch Money CSV
-- [ ] AI categorisation accuracy > 80% on common merchants
+- [x] Upload DBS CSV → download valid Lunch Money CSV
+- [x] AI categorisation accuracy > 80% on common merchants
 - [ ] No financial data logged or stored server-side
-- [ ] Full pipeline completes in < 2 minutes
+- [x] Full pipeline completes in < 2 minutes

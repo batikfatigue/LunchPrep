@@ -88,22 +88,22 @@ describe("date parsing", () => {
 // ---------------------------------------------------------------------------
 
 describe("amount parsing", () => {
-  it("parses debit as negative", () => {
+  it("parses debit as positive", () => {
     const tx = findTx("NOODLE HOUSE STALL");
     expect(tx).toBeDefined();
-    expect(tx!.amount).toBe(-9.3);
+    expect(tx!.amount).toBe(9.3);
   });
 
-  it("parses credit as positive", () => {
+  it("parses credit as negative", () => {
     const tx = findTx("ALICE WONG");
     expect(tx).toBeDefined();
-    expect(tx!.amount).toBe(200);
+    expect(tx!.amount).toBe(-200);
   });
 
   it("rounds to 2 decimal places", () => {
     const tx = findTx("BURGER KING");
     expect(tx).toBeDefined();
-    expect(tx!.amount).toBe(-28.45);
+    expect(tx!.amount).toBe(28.45);
   });
 });
 
@@ -194,7 +194,7 @@ describe("ICT PayNow cleaning", () => {
     expect(tx).toBeDefined();
     expect(tx!.description).toBe("Government Agency Office");
     expect(tx!.notes).toBe("QR240219194137");
-    expect(tx!.amount).toBe(-45);
+    expect(tx!.amount).toBe(45);
   });
 
   it('strips default "PayNow transfer" note on incoming', () => {
@@ -202,7 +202,7 @@ describe("ICT PayNow cleaning", () => {
     expect(tx).toBeDefined();
     expect(tx!.description).toBe("Alice Wong");
     expect(tx!.notes).toBe("");
-    expect(tx!.amount).toBe(200);
+    expect(tx!.amount).toBe(-200);
   });
 
   it('strips default "PayNow transfer" note on other incoming', () => {
@@ -210,7 +210,7 @@ describe("ICT PayNow cleaning", () => {
     expect(tx).toBeDefined();
     expect(tx!.description).toBe("Bob Tan");
     expect(tx!.notes).toBe("");
-    expect(tx!.amount).toBe(23);
+    expect(tx!.amount).toBe(-23);
   });
 
   it("preserves meaningful notes like Gong Xi Fa Cai", () => {
@@ -218,7 +218,7 @@ describe("ICT PayNow cleaning", () => {
     expect(tx).toBeDefined();
     expect(tx!.description).toBe("Charlie Lim");
     expect(tx!.notes).toBe("Gong Xi Fa Cai");
-    expect(tx!.amount).toBe(255);
+    expect(tx!.amount).toBe(-255);
   });
 
   it("preserves notes for outgoing transfers", () => {
@@ -253,7 +253,7 @@ describe("ICT PayNow cleaning", () => {
     expect(tx).toBeDefined();
     expect(tx!.description).toBe("Eve Low");
     expect(tx!.notes).toBe("sin to urc ticket");
-    expect(tx!.amount).toBe(-666);
+    expect(tx!.amount).toBe(666);
   });
 
   it("handles Fiona Goh incoming PayNow", () => {
@@ -264,7 +264,7 @@ describe("ICT PayNow cleaning", () => {
     for (const tx of fionaTxs) {
       expect(tx.description).toBe("Fiona Goh");
       expect(tx.notes).toBe(""); // Default "PayNow transfer" stripped
-      expect(tx.amount).toBeGreaterThan(0);
+      expect(tx.amount).toBeLessThan(0);
     }
   });
 
@@ -303,7 +303,7 @@ describe("ICT external bank cleaning", () => {
     expect(tx).toBeDefined();
     expect(tx!.description).toBe("Trus");
     expect(tx!.notes).toBe("Transfer");
-    expect(tx!.amount).toBe(-100);
+    expect(tx!.amount).toBe(100);
   });
 });
 
@@ -318,7 +318,7 @@ describe("Row 38 edge case", () => {
     const tx = findTx("CITY TAXI DRIVING SCHOOL");
     expect(tx).toBeDefined();
     expect(tx!.description).toBe("Comfortdelgro Driving Cen");
-    expect(tx!.amount).toBe(-42);
+    expect(tx!.amount).toBe(42);
   });
 });
 
@@ -335,7 +335,7 @@ describe("ITR cleaning", () => {
     for (const tx of paylahTxs) {
       expect(tx.description).toBe("PayLah!");
       expect(tx.notes).toBe("Received");
-      expect(tx.amount).toBeGreaterThan(0);
+      expect(tx.amount).toBeLessThan(0);
     }
   });
 
@@ -344,7 +344,7 @@ describe("ITR cleaning", () => {
       t.originalDescription.includes("PAYLAH!"),
     );
     const amounts = paylahTxs.map((t) => t.amount).sort((a, b) => a - b);
-    expect(amounts).toEqual([15, 23.84]);
+    expect(amounts).toEqual([-23.84, -15]);
   });
 });
 
@@ -421,10 +421,10 @@ describe("end-to-end: parse → export", () => {
     expect(lines).toHaveLength(43);
 
     // Spot-check first data row
-    expect(lines[1]).toBe("2026-02-23,Noodle House Stall,-9.30,,");
+    expect(lines[1]).toBe("2026-02-23,Noodle House Stall,9.30,,");
 
     // Spot-check a row with notes containing commas (none in sample, but verify format)
     const burgerLine = lines.find((l) => l.includes("Burger King"));
-    expect(burgerLine).toBe("2026-02-21,Burger King (Xyz),-28.45,,");
+    expect(burgerLine).toBe("2026-02-21,Burger King (Xyz),28.45,,");
   });
 });
