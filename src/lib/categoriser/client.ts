@@ -139,7 +139,7 @@ export async function callCategorise(
   const key = byokKey ?? getBYOKKey();
 
   if (key) {
-    const results = await callGeminoDirect(transactions, categories, key);
+    const results = await callGeminiDirect(transactions, categories, key);
     return { results };
   }
   return callProxy(transactions, categories);
@@ -208,7 +208,7 @@ async function callProxy(
  * @param apiKey - User's Gemini API key.
  * @returns Categorisation results from Gemini.
  */
-async function callGeminoDirect(
+async function callGeminiDirect(
   transactions: RawTransaction[],
   categories: string[],
   apiKey: string,
@@ -248,7 +248,7 @@ async function callGeminoDirect(
     const text = result.response.text();
     return JSON.parse(text) as CategorisationResult[];
   } catch (err) {
-    console.error("[callGeminoDirect] Gemini error:", err);
+    console.error("[callGeminiDirect] Gemini error:", err);
     throw new Error("SERVER_ERROR");
   }
 }

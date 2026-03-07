@@ -146,6 +146,7 @@ function FloatingPanel({
     // Default position: bottom-right
     useEffect(() => {
         if (position.x === -1) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setPosition({
                 x: window.innerWidth - 420,
                 y: window.innerHeight - 500,

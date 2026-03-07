@@ -1,8 +1,8 @@
 /**
  * Markdown export utility for the Categorisation Debugger dev tool.
  *
- * Compiles transaction data, Gemini debug payloads, and user annotations into
- * a formatted Markdown string suitable for offline analysis.
+ * Compiles flagged transaction data, Gemini debug payloads, and developer
+ * notes into a formatted Markdown string suitable for offline analysis.
  *
  * Dev-tool only — never imported outside src/dev-tools/.
  */
@@ -17,12 +17,47 @@ export interface AnnotationEntry {
 }
 
 /**
- * Compile all categorisation debugger data into a Markdown string.
+ * Extract the per-transaction API payload from the raw batch payload.
+ *
+ * Parses the full Gemini batch JSON, finds the entry matching the given
+ * transaction index, and returns a cleaned JSON string (without the
+ * internal `index` field). Returns `null` if extraction fails.
+ *
+ * @param rawPayload - The full JSON batch string sent to Gemini.
+ * @param index      - The transaction index to extract.
+ * @returns Formatted JSON string or null.
+ */
+export function extractTransactionPayload(
+  rawPayload: string | undefined,
+  index: number,
+): string | null {
+  if (!rawPayload) return null;
+  try {
+    const fullPayload = JSON.parse(rawPayload);
+    const matched = fullPayload.transactions?.find(
+      (t: Record<string, unknown>) => t.index === index,
+    );
+    if (!matched) return null;
+    // Reason: Remove `index` — it's an internal routing field, not useful in the report.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { index: _index, ...rest } = matched;
+    return JSON.stringify(rest, null, 2);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Compile flagged categorisation debugger data into a Markdown string.
+ *
+ * Only transactions with a non-empty developer note (annotation) are
+ * included. Each entry shows the developer note first, followed by a
+ * metadata table, API payload/output code blocks, and AI reasoning.
  *
  * @param transactions - The full transaction list shown in the review step.
  * @param categoryMap  - Map of transaction index → assigned category.
  * @param debugData    - Raw payload and per-transaction reasoning from the API.
- * @param annotations  - User-typed comments keyed by transaction index.
+ * @param annotations  - User-typed developer notes keyed by transaction index.
  * @returns Formatted Markdown string for download.
  */
 export function buildReviewMarkdown(
@@ -33,16 +68,39 @@ export function buildReviewMarkdown(
 ): string {
   const now = new Date().toISOString();
   const lines: string[] = [
-    "# LunchPrep — Categorisation Debugger",
+    "# LunchPrep — Categorisation Debugger Report",
     "",
-    `Generated: ${now}`,
+    `> Generated: ${now}`,
     "",
     "---",
     "",
   ];
 
-  for (let i = 0; i < transactions.length; i++) {
+  // Collect flagged indices (transactions with a non-empty developer note)
+  const flaggedIndices = Array.from(annotations.entries())
+    .filter(([, comment]) => comment.trim().length > 0)
+    .map(([index]) => index)
+    .sort((a, b) => a - b);
+
+  if (flaggedIndices.length === 0) {
+    lines.push("*No items were flagged for review.*");
+    lines.push("");
+    return lines.join("\n");
+  }
+
+  lines.push(
+    `**${flaggedIndices.length}** of ${transactions.length} transactions flagged for review.`,
+  );
+  lines.push("");
+  lines.push("---");
+  lines.push("");
+
+  let entryNum = 0;
+  for (const i of flaggedIndices) {
     const tx = transactions[i];
+    if (!tx) continue;
+
+    entryNum++;
     const category = categoryMap.get(i) ?? "(uncategorised)";
     const reasoning =
       debugData?.perTransaction.find((p) => p.index === i)?.reasoning ?? "";
@@ -52,45 +110,70 @@ export function buildReviewMarkdown(
     const d = tx.date;
     const dateStr = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 
-    lines.push(`## Transaction ${i + 1} — ${dateStr}`);
+    const amountStr = `${tx.amount < 0 ? "−" : "+"}$${Math.abs(tx.amount).toFixed(2)}`;
+
+    // --- Section header ---
+    lines.push(`## ${entryNum}. Transaction #${i + 1} — ${dateStr} — ${tx.originalDescription}`);
     lines.push("");
-    lines.push(`**Payee:** ${tx.description}`);
-    lines.push(
-      `**Amount:** ${tx.amount < 0 ? "-" : "+"}$${Math.abs(tx.amount).toFixed(2)}`,
-    );
-    lines.push(`**Assigned Category:** ${category}`);
 
-    if (tx.notes) {
-      lines.push(`**Notes:** ${tx.notes}`);
+    // --- Developer Note (first) ---
+    lines.push("### Developer Note");
+    lines.push("");
+    lines.push(comment);
+    lines.push("");
+
+    // --- Metadata table ---
+    lines.push("### Details");
+    lines.push("");
+    lines.push("| Field | Value |");
+    lines.push("| :--- | :--- |");
+    lines.push(`| **Date** | ${dateStr} |`);
+    lines.push(`| **Raw Description** | ${tx.originalDescription} |`);
+    lines.push(`| **Amount** | ${amountStr} |`);
+    lines.push(`| **Transaction Code** | \`${tx.transactionCode}\` |`);
+    lines.push(`| **Assigned Category** | ${category} |`);
+    lines.push(`| **Notes** | ${tx.notes || "—"} |`);
+    lines.push("");
+
+    // --- API Payload ---
+    const payload = extractTransactionPayload(debugData?.rawPayload, i);
+    lines.push("### API Payload");
+    lines.push("");
+    if (payload) {
+      lines.push("```json");
+      lines.push(payload);
+      lines.push("```");
+    } else {
+      lines.push("*N/A*");
     }
+    lines.push("");
 
+    // --- API Output ---
+    lines.push("### API Output");
+    lines.push("");
+    if (category !== "(uncategorised)") {
+      lines.push("```json");
+      lines.push(JSON.stringify({ category }, null, 2));
+      lines.push("```");
+    } else {
+      lines.push("*N/A*");
+    }
+    lines.push("");
+
+    // --- AI Reasoning ---
+    lines.push("### AI Reasoning");
+    lines.push("");
     if (reasoning) {
-      lines.push("");
-      lines.push("### AI Reasoning");
-      lines.push("");
-      lines.push(reasoning);
+      // Wrap each line in blockquote
+      for (const rLine of reasoning.split("\n")) {
+        lines.push(`> ${rLine}`);
+      }
+    } else {
+      lines.push("*N/A*");
     }
-
-    if (comment) {
-      lines.push("");
-      lines.push("### Annotation");
-      lines.push("");
-      lines.push(comment);
-    }
-
     lines.push("");
+
     lines.push("---");
-    lines.push("");
-  }
-
-  if (debugData?.rawPayload) {
-    lines.push("## Raw API Payload");
-    lines.push("");
-    lines.push("The full JSON batch sent to Gemini for this session:");
-    lines.push("");
-    lines.push("```json");
-    lines.push(debugData.rawPayload);
-    lines.push("```");
     lines.push("");
   }
 

@@ -17,7 +17,7 @@
 
 import * as React from "react";
 import { Select } from "radix-ui";
-import { Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RawTransaction } from "@/lib/parsers/types";
 
@@ -64,6 +64,13 @@ export interface TransactionTableProps {
 }
 
 // ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/** Number of transaction rows displayed per page. */
+export const PAGE_SIZE = 25;
+
+// ---------------------------------------------------------------------------
 // Pure helpers — exported for unit testing
 // ---------------------------------------------------------------------------
 
@@ -94,6 +101,28 @@ export function computeSummary(transactions: RawTransaction[]): {
     totalCredits,
     net: totalCredits + totalDebits,
   };
+}
+
+/**
+ * Compute the total number of pages for a given item count.
+ *
+ * @param totalItems - Total number of items to paginate.
+ * @param pageSize - Number of items per page.
+ * @returns Total number of pages (minimum 1).
+ */
+export function computeTotalPages(totalItems: number, pageSize: number): number {
+  return Math.max(1, Math.ceil(totalItems / pageSize));
+}
+
+/**
+ * Clamp a page number to the valid range [0, totalPages - 1].
+ *
+ * @param page - Requested 0-indexed page number.
+ * @param totalPages - Total number of pages.
+ * @returns Clamped page number within [0, totalPages - 1].
+ */
+export function clampPage(page: number, totalPages: number): number {
+  return Math.max(0, Math.min(page, totalPages - 1));
 }
 
 /**
@@ -228,6 +257,50 @@ export function TransactionTable({
 }: TransactionTableProps) {
   const summary = computeSummary(transactions);
 
+  // ---- Pagination state ----
+  const [currentPage, setCurrentPage] = React.useState(0);
+  const totalPages = computeTotalPages(transactions.length, PAGE_SIZE);
+
+  // Reset to page 0 when the transaction data changes (e.g. new file upload).
+  const prevLengthRef = React.useRef(transactions.length);
+  React.useEffect(() => {
+    if (transactions.length !== prevLengthRef.current) {
+      setCurrentPage(0);
+      prevLengthRef.current = transactions.length;
+    }
+  }, [transactions.length]);
+
+  // Clamp current page if it exceeds the new total (e.g. after data shrinks).
+  const safePage = clampPage(currentPage, totalPages);
+  if (safePage !== currentPage) setCurrentPage(safePage);
+
+  // Slice transactions for the current page.
+  const startIndex = safePage * PAGE_SIZE;
+  const endIndex = Math.min(startIndex + PAGE_SIZE, transactions.length);
+  const pageTransactions = transactions.slice(startIndex, endIndex);
+
+  // ---- Page jump input state ----
+  const [pageInput, setPageInput] = React.useState(String(safePage + 1));
+
+  // Keep input in sync when navigating via arrows.
+  React.useEffect(() => {
+    setPageInput(String(safePage + 1));
+  }, [safePage]);
+
+  /** Commit the page input value, clamping to valid range. */
+  function commitPageInput() {
+    const parsed = parseInt(pageInput, 10);
+    if (Number.isNaN(parsed)) {
+      setPageInput(String(safePage + 1));
+      return;
+    }
+    const clamped = clampPage(parsed - 1, totalPages);
+    setCurrentPage(clamped);
+    setPageInput(String(clamped + 1));
+  }
+
+  const showPagination = transactions.length > 0 && totalPages > 1;
+
   return (
     <div className="relative overflow-auto rounded-md border">
       {/* Loading overlay — shown while AI categorisation is in-flight */}
@@ -252,6 +325,7 @@ export function TransactionTable({
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <th className="px-3 py-2 w-12 text-center">No.</th>
             <th className="px-3 py-2">Date</th>
             <th className="px-3 py-2">Payee</th>
             <th className="px-3 py-2 text-right">Amount</th>
@@ -260,25 +334,30 @@ export function TransactionTable({
           </tr>
         </thead>
         <tbody>
-          {transactions.map((tx, i) => (
-            <TransactionRow
-              key={i}
-              index={i}
-              transaction={tx}
-              categories={categories}
-              selectedCategory={categoryMap.get(i) ?? ""}
-              onCategoryChange={onCategoryChange}
-              onPayeeChange={onPayeeChange}
-              onNotesChange={onNotesChange}
-            />
-          ))}
+          {pageTransactions.map((tx, localIdx) => {
+            // Reason: absolute index ensures categoryMap lookups and callbacks
+            // reference the correct transaction regardless of current page.
+            const absoluteIdx = startIndex + localIdx;
+            return (
+              <TransactionRow
+                key={absoluteIdx}
+                index={absoluteIdx}
+                transaction={tx}
+                categories={categories}
+                selectedCategory={categoryMap.get(absoluteIdx) ?? ""}
+                onCategoryChange={onCategoryChange}
+                onPayeeChange={onPayeeChange}
+                onNotesChange={onNotesChange}
+              />
+            );
+          })}
         </tbody>
 
-        {/* Summary footer — only shown when there are transactions */}
+        {/* Summary footer — reflects ALL transactions, not just current page */}
         {transactions.length > 0 && (
           <tfoot>
             <tr className="border-t-2 bg-muted/30 font-medium">
-              <td className="px-3 py-2 text-xs text-muted-foreground" colSpan={2}>
+              <td className="px-3 py-2 text-xs text-muted-foreground" colSpan={3}>
                 Summary ({transactions.length} transactions)
               </td>
               <td className="px-3 py-2 text-right tabular-nums">
@@ -306,6 +385,64 @@ export function TransactionTable({
           </tfoot>
         )}
       </table>
+
+      {/* Pagination controls */}
+      {showPagination && (
+        <div className="flex items-center justify-center gap-2 border-t px-4 py-3">
+          <button
+            id="pagination-prev"
+            type="button"
+            disabled={safePage === 0}
+            onClick={() => setCurrentPage((p) => clampPage(p - 1, totalPages))}
+            className={cn(
+              "inline-flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors",
+              safePage === 0
+                ? "cursor-not-allowed opacity-30"
+                : "hover:bg-accent hover:text-foreground",
+            )}
+            aria-label="Previous page"
+          >
+            <ChevronLeft className="size-4" strokeWidth={1.5} />
+          </button>
+
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <input
+              id="pagination-page-input"
+              type="number"
+              min={1}
+              max={totalPages}
+              value={pageInput}
+              onChange={(e) => setPageInput(e.target.value)}
+              onBlur={commitPageInput}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitPageInput();
+              }}
+              className={cn(
+                "w-8 rounded-md border-2 border-border bg-background px-1 py-0.5 text-center text-sm tabular-nums text-foreground",
+                "outline-none transition-colors focus:border-ring focus:ring-1 focus:ring-ring",
+              )}
+              aria-label="Page number"
+            />
+            <span>of {totalPages}</span>
+          </div>
+
+          <button
+            id="pagination-next"
+            type="button"
+            disabled={safePage === totalPages - 1}
+            onClick={() => setCurrentPage((p) => clampPage(p + 1, totalPages))}
+            className={cn(
+              "inline-flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors",
+              safePage === totalPages - 1
+                ? "cursor-not-allowed opacity-30"
+                : "hover:bg-accent hover:text-foreground",
+            )}
+            aria-label="Next page"
+          >
+            <ChevronRight className="size-4" strokeWidth={1.5} />
+          </button>
+        </div>
+      )}
 
       {transactions.length === 0 && (
         <div className="px-4 py-8 text-center text-sm text-muted-foreground">
@@ -346,6 +483,11 @@ function TransactionRow({
 
   return (
     <tr className="border-b last:border-0 hover:bg-muted/30">
+      {/* Number */}
+      <td className="px-3 py-2 text-center text-xs text-muted-foreground/70 tabular-nums">
+        {index + 1}
+      </td>
+
       {/* Date */}
       <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">
         {formatDate(transaction.date)}
