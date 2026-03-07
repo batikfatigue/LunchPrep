@@ -40,4 +40,4 @@ LunchPrep helps you transform raw bank CSV exports into a format suitable for se
 This repository is provided **for viewing purposes only**.  
 No reproduction, modification, or redistribution of the contents is permitted without explicit permission.
 
-© 2025 batikfatigue. All rights reserved.
+© 2026 batikfatigue. All rights reserved.
