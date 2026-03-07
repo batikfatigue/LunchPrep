@@ -1,8 +1,8 @@
-name: "Project Scaffolding — Next.js 15 + Tailwind CSS 4 + shadcn/ui + Vitest"
+name: "Project Scaffolding — Next.js 16 + Tailwind CSS 4 + shadcn/ui + Vitest"
 description: |
 
 ## Purpose
-Initialise the LunchPrep Next.js 15 project in an existing repo that already contains documentation, specs, and data files. The scaffolding must preserve all existing files while adding the full development stack.
+Initialise the LunchPrep Next.js 16 project in an existing repo that already contains documentation, specs, and data files. The scaffolding must preserve all existing files while adding the full development stack.
 
 ## Core Principles
 1. **Context is King**: Include ALL necessary documentation, examples, and caveats
@@ -14,7 +14,7 @@ Initialise the LunchPrep Next.js 15 project in an existing repo that already con
 ---
 
 ## Goal
-Set up a fully working Next.js 15 development environment with TypeScript (strict), App Router, Tailwind CSS 4, shadcn/ui, and Vitest — all inside the existing LunchPrep repository without overwriting any existing files (docs, specs, data files, README, CLAUDE.md, .gitignore).
+Set up a fully working Next.js 16 development environment with TypeScript (strict), App Router, Tailwind CSS 4, shadcn/ui, and Vitest — all inside the existing LunchPrep repository without overwriting any existing files (docs, specs, data files, README, CLAUDE.md, .gitignore).
 
 ## Why
 - **Foundation**: Every subsequent feature (parsers, AI categorisation, UI) depends on this scaffolding being correct
@@ -162,7 +162,7 @@ After this PRP is executed:
 
 // NOTE: shadcn/ui installs `tw-animate-css` (not `tailwindcss-animate`) for Tailwind v4.
 
-// NOTE: Next.js 15 uses Turbopack by default for dev server.
+// NOTE: Next.js 16 uses Turbopack by default for dev server.
 ```
 
 ## Implementation Blueprint
@@ -174,7 +174,7 @@ Task 1: Scaffold Next.js in temporary directory
   WHY: Cannot run create-next-app in root — it would overwrite existing files
   DO:
     - Run: npx create-next-app@latest tmp-scaffold --typescript --eslint --tailwind --src-dir --app --import-alias "@/*" --yes
-    - This creates a complete Next.js 15 + Tailwind v4 project in tmp-scaffold/
+    - This creates a complete Next.js 16 + Tailwind v4 project in tmp-scaffold/
   VERIFY: tmp-scaffold/ contains package.json, tsconfig.json, src/app/, etc.
 
 Task 2: Move scaffolded files into project root (merge carefully)
@@ -298,7 +298,7 @@ Task 11: Update docs/todo.md
   WHY: Project convention — mark completed tasks immediately
   DO:
     - Check off all Phase 1 "Project Setup" items in docs/todo.md:
-      - [x] Initialise Next.js 15 project with TypeScript
+      - [x] Initialise Next.js 16 project with TypeScript
       - [x] Install and configure Tailwind CSS 4
       - [x] Install and configure shadcn/ui
       - [x] Set up Vitest for unit testing
