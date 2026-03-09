@@ -40,7 +40,7 @@ table pagination — navigating to a different page does not clear it.
 
 ### Requirement: Display per-stage diff table
 The inspector SHALL render a table with pipeline stages as rows and transaction
-fields as columns. Columns SHALL include: `payee`, `notes`, and `category`.
+fields as columns. Columns SHALL include: `payee` and `notes`.
 Rows SHALL appear in pipeline order: `parsed` → `anonymised` → `sent` → `categorised` → `restored`.
 The `sent` row SHALL display fields from the Gemini payload shape.
 
@@ -65,6 +65,6 @@ The first stage row (parsed) SHALL never show change markers.
 - **WHEN** `notes` is identical across all stages
 - **THEN** no change marker appears in the `notes` column for any row
 
-#### Scenario: Category assigned at categorised stage
-- **WHEN** `category` is absent in `parsed` and `anonymised` but present in `categorised`
-- **THEN** the `category` cell in the `categorised` row displays a change marker
+#### Scenario: Payee restored at restored stage
+- **WHEN** `restored.payee` differs from `categorised.payee`
+- **THEN** the `payee` cell in the `restored` row displays a change marker

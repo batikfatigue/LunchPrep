@@ -34,6 +34,7 @@ import type { DebugData } from "@/lib/categoriser/client";
 import { DEFAULT_CATEGORIES } from "@/lib/categoriser/categories";
 import { generateLunchMoneyCsv, downloadCsv } from "@/lib/exporter/lunchmoney";
 import type { RawTransaction } from "@/lib/parsers/types";
+import type { PipelineSnapshot, GeminiSentEntry } from "@/lib/pipeline-snapshot"; // Dev-tools: pipeline-inspector
 
 // ---------------------------------------------------------------------------
 // Dev-only import: conditionally loaded, dead-code eliminated in production
@@ -44,6 +45,12 @@ import type { RawTransaction } from "@/lib/parsers/types";
 const CategorisationDebuggerDevTool =
   process.env.NEXT_PUBLIC_DEV_TOOLS === "true"
     ? dynamic(() => import("@/dev-tools/categorisation-debugger"))
+    : null;
+
+// Dev-tools: pipeline-inspector — gated dynamic import (Pattern B)
+const PipelineInspectorDevTool =
+  process.env.NEXT_PUBLIC_DEV_TOOLS === "true"
+    ? dynamic(() => import("@/dev-tools/pipeline-inspector"))
     : null;
 
 // ---------------------------------------------------------------------------
@@ -80,6 +87,10 @@ export default function Home() {
   // Dev-mode only: debug data from the categorisation API (reasoning + raw payload).
   // Stays null in production since the API never returns debug data there.
   const [debugData, setDebugData] = React.useState<DebugData | null>(null);
+  // Dev-tools: pipeline-inspector — snapshot of transaction state at each pipeline stage
+  const [snapshots, setSnapshots] = React.useState<PipelineSnapshot>({});
+  // Dev-tools: pipeline-inspector — index of the selected transaction row
+  const [selectedIndex, setSelectedIndex] = React.useState<number | null>(null);
 
   // ---------------------------------------------------------------------------
   // Handlers
@@ -116,8 +127,27 @@ export default function Home() {
    */
   async function triggerCategorise(txs: RawTransaction[] = transactions) {
     setCatStatus("loading");
+    setSnapshots({}); // Dev-tools: pipeline-inspector — reset snapshot for new run
     try {
+      // Dev-tools: pipeline-inspector — capture parsed stage
+      setSnapshots((prev) => ({ ...prev, parsed: txs }));
+
       const anonymised = anonymise(txs);
+      // Dev-tools: pipeline-inspector — capture anonymised stage
+      setSnapshots((prev) => ({ ...prev, anonymised }));
+
+      // Dev-tools: pipeline-inspector — capture sent stage (Gemini payload shape)
+      // Gated to avoid unnecessary work in production.
+      if (process.env.NEXT_PUBLIC_DEV_TOOLS === "true") {
+        const sentEntries: GeminiSentEntry[] = anonymised.map((tx, i) => ({
+          index: i,
+          payee: tx.description,
+          notes: tx.notes,
+          transactionType: tx.transactionCode,
+        }));
+        setSnapshots((prev) => ({ ...prev, sent: sentEntries }));
+      }
+
       // Reason: Pass apiKey only when non-empty; callCategorise() will fall
       // back to reading from localStorage via getBYOKKey() when undefined.
       const { results, debug } = await callCategorise(
@@ -125,7 +155,13 @@ export default function Home() {
         categories,
         apiKey || undefined,
       );
+      // Dev-tools: pipeline-inspector — capture categorised stage (before restore)
+      setSnapshots((prev) => ({ ...prev, categorised: anonymised }));
+
       const restored = restore(anonymised);
+      // Dev-tools: pipeline-inspector — capture restored stage
+      setSnapshots((prev) => ({ ...prev, restored }));
+
       setTransactions(restored);
       if (debug) setDebugData(debug);
 
@@ -160,6 +196,8 @@ export default function Home() {
     setCatStatus("idle");
     setParseError(null);
     setDebugData(null);
+    setSnapshots({}); // Dev-tools: pipeline-inspector
+    setSelectedIndex(null); // Dev-tools: pipeline-inspector
     setStep("upload");
   }
 
@@ -337,7 +375,17 @@ export default function Home() {
             onCategoryChange={handleCategoryChange}
             onPayeeChange={handlePayeeChange}
             onNotesChange={handleNotesChange}
+            onRowSelect={setSelectedIndex} // Dev-tools: pipeline-inspector
+            selectedIndex={selectedIndex} // Dev-tools: pipeline-inspector
           />
+
+          {/* Dev-tools: pipeline-inspector — inline detail pane */}
+          {PipelineInspectorDevTool && (
+            <PipelineInspectorDevTool
+              snapshots={snapshots}
+              selectedIndex={selectedIndex}
+            />
+          )}
         </div>
       )}
 

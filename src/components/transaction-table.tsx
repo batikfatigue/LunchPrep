@@ -61,6 +61,14 @@ export interface TransactionTableProps {
    * @param notes - Updated notes string.
    */
   onNotesChange?: (index: number, notes: string) => void;
+  /**
+   * Optional callback fired when a transaction row is clicked for inspection.
+   *
+   * @param index - 0-based transaction index.
+   */
+  onRowSelect?: (index: number) => void;
+  /** Index of the currently selected row (for visual highlight). */
+  selectedIndex?: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -254,6 +262,8 @@ export function TransactionTable({
   onCategoryChange,
   onPayeeChange,
   onNotesChange,
+  onRowSelect,
+  selectedIndex,
 }: TransactionTableProps) {
   const summary = computeSummary(transactions);
 
@@ -348,6 +358,8 @@ export function TransactionTable({
                 onCategoryChange={onCategoryChange}
                 onPayeeChange={onPayeeChange}
                 onNotesChange={onNotesChange}
+                onRowSelect={onRowSelect}
+                isSelected={selectedIndex === absoluteIdx}
               />
             );
           })}
@@ -465,6 +477,8 @@ interface TransactionRowProps {
   onCategoryChange: (index: number, category: string) => void;
   onPayeeChange?: (index: number, payee: string) => void;
   onNotesChange?: (index: number, notes: string) => void;
+  onRowSelect?: (index: number) => void;
+  isSelected?: boolean;
 }
 
 /**
@@ -478,11 +492,20 @@ function TransactionRow({
   onCategoryChange,
   onPayeeChange,
   onNotesChange,
+  onRowSelect,
+  isSelected,
 }: TransactionRowProps) {
   const isDebit = transaction.amount < 0;
 
   return (
-    <tr className="border-b last:border-0 hover:bg-muted/30">
+    <tr
+      className={cn(
+        "border-b last:border-0 hover:bg-muted/30",
+        isSelected && "bg-accent/40 ring-1 ring-inset ring-ring/20",
+        onRowSelect && "cursor-pointer",
+      )}
+      onClick={() => onRowSelect?.(index)}
+    >
       {/* Number */}
       <td className="px-3 py-2 text-center text-xs text-muted-foreground/70 tabular-nums">
         {index + 1}
