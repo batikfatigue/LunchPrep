@@ -430,6 +430,10 @@ export const dbsParser: BankParser = {
         transactionCode: lookupTransactionCode(code),
         notes: cleaned.notes,
         originalPII: {},
+        // Dev-tools: pipeline-inspector — capture per-code cleaner output before stripPII
+        ...(process.env.NEXT_PUBLIC_DEV_TOOLS === "true" && {
+          parseTrace: { cleanedPayee: cleaned.payee },
+        }),
       });
     }
 

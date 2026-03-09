@@ -2,7 +2,8 @@
 
 /**
  * Pipeline Inspector — dev tool for inspecting transaction state at each
- * pipeline stage (parsed → anonymised → sent → categorised → restored).
+ * pipeline stage (raw → afterClean → afterStripPII → anonymised → sent →
+ * categorised → restored).
  *
  * Renders as an inline detail pane below the transaction table. Shows a
  * per-stage diff table for the selected transaction with field-level
@@ -25,8 +26,16 @@ export interface PipelineInspectorProps {
   selectedIndex: number | null;
 }
 
-/** Ordered pipeline stage names. */
-const STAGE_ORDER = ["parsed", "anonymised", "sent", "categorised", "restored"] as const;
+/** Ordered pipeline stage names — includes parse sub-stages derived from the `parsed` snapshot. */
+const STAGE_ORDER = [
+  "raw",
+  "afterClean",
+  "afterStripPII",
+  "anonymised",
+  "sent",
+  "categorised",
+  "restored",
+] as const;
 type StageName = (typeof STAGE_ORDER)[number];
 
 /** Columns shown in the stage diff table. */
@@ -47,12 +56,15 @@ interface StageRow {
 /**
  * Extract column values from a pipeline stage entry for the given transaction index.
  *
+ * For parse sub-stages (raw, afterClean, afterStripPII), values are derived
+ * from fields on the `RawTransaction` in the `parsed` snapshot entry.
+ *
  * @param stage - Pipeline stage name.
  * @param data - Stage data (RawTransaction[] or GeminiSentEntry[]).
  * @param index - Transaction index to extract.
- * @returns Normalised StageRow, or null if the index is out of bounds.
+ * @returns Normalised StageRow, or null if the index is out of bounds or data is missing.
  */
-function extractRow(
+export function extractRow(
   stage: StageName,
   data: RawTransaction[] | GeminiSentEntry[],
   index: number,
@@ -69,6 +81,34 @@ function extractRow(
   }
 
   const tx = data[index] as RawTransaction;
+
+  // Reason: Parse sub-stages are derived from fields on the RawTransaction
+  // in the `parsed` snapshot, not from separate snapshot keys.
+  if (stage === "raw") {
+    return {
+      stage,
+      payee: tx.originalDescription,
+      notes: "—",
+    };
+  }
+
+  if (stage === "afterClean") {
+    if (!tx.parseTrace) return null;
+    return {
+      stage,
+      payee: tx.parseTrace.cleanedPayee,
+      notes: tx.notes,
+    };
+  }
+
+  if (stage === "afterStripPII") {
+    return {
+      stage,
+      payee: tx.description,
+      notes: tx.notes,
+    };
+  }
+
   return {
     stage,
     payee: tx.description,
@@ -91,15 +131,21 @@ export function hasChanged(current: string, previous: string | undefined): boole
 /**
  * Build the ordered list of stage rows for a given transaction index.
  *
+ * Parse sub-stages (raw, afterClean, afterStripPII) are derived from the
+ * `parsed` snapshot entry. Other stages use their own snapshot keys.
+ *
  * @param snapshots - Pipeline snapshot data.
  * @param index - Transaction index.
  * @returns Array of StageRow objects for present stages, in pipeline order.
  */
-function buildStageRows(snapshots: PipelineSnapshot, index: number): StageRow[] {
+export function buildStageRows(snapshots: PipelineSnapshot, index: number): StageRow[] {
   const rows: StageRow[] = [];
 
   for (const stage of STAGE_ORDER) {
-    const data = snapshots[stage];
+    // Reason: Parse sub-stages derive their data from the `parsed` snapshot,
+    // while other stages have their own keys on PipelineSnapshot.
+    const isParseSub = stage === "raw" || stage === "afterClean" || stage === "afterStripPII";
+    const data = isParseSub ? snapshots.parsed : snapshots[stage];
     if (!data) continue;
 
     const row = extractRow(stage, data, index);
@@ -114,7 +160,9 @@ function buildStageRows(snapshots: PipelineSnapshot, index: number): StageRow[] 
 // ---------------------------------------------------------------------------
 
 const STAGE_LABELS: Record<StageName, string> = {
-  parsed: "Parsed",
+  raw: "Raw",
+  afterClean: "After Clean",
+  afterStripPII: "After StripPII",
   anonymised: "Anonymised",
   sent: "Sent to Gemini",
   categorised: "Categorised",

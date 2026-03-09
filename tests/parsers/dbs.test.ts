@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, vi, afterAll } from "vitest";
 import { readFileSync } from "fs";
 import path from "path";
 import { dbsParser } from "@/lib/parsers/dbs";
@@ -408,6 +408,55 @@ describe("detectAndParse", () => {
 // ---------------------------------------------------------------------------
 // End-to-end integration: parse → export
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// parseTrace (dev-tools gate)
+// ---------------------------------------------------------------------------
+
+describe("parseTrace", () => {
+  it("is absent when NEXT_PUBLIC_DEV_TOOLS is not set", () => {
+    // Default env — dev tools not enabled
+    for (const tx of transactions) {
+      expect(tx.parseTrace).toBeUndefined();
+    }
+  });
+
+  it("is populated when NEXT_PUBLIC_DEV_TOOLS is 'true'", () => {
+    const originalVal = process.env.NEXT_PUBLIC_DEV_TOOLS;
+    vi.stubEnv("NEXT_PUBLIC_DEV_TOOLS", "true");
+
+    try {
+      const devTransactions = dbsParser.parse(sampleCsv);
+      for (const tx of devTransactions) {
+        expect(tx.parseTrace).toBeDefined();
+        expect(typeof tx.parseTrace!.cleanedPayee).toBe("string");
+        expect(tx.parseTrace!.cleanedPayee.length).toBeGreaterThan(0);
+      }
+    } finally {
+      if (originalVal === undefined) {
+        vi.stubEnv("NEXT_PUBLIC_DEV_TOOLS", "");
+      } else {
+        vi.stubEnv("NEXT_PUBLIC_DEV_TOOLS", originalVal);
+      }
+    }
+  });
+
+  it("cleanedPayee matches description when stripPII changes nothing", () => {
+    vi.stubEnv("NEXT_PUBLIC_DEV_TOOLS", "true");
+
+    try {
+      const devTransactions = dbsParser.parse(sampleCsv);
+      // POS transactions have no card numbers — cleanedPayee should equal description
+      const posTx = devTransactions.find((t) =>
+        t.originalDescription.includes("NOODLE HOUSE STALL"),
+      );
+      expect(posTx).toBeDefined();
+      expect(posTx!.parseTrace!.cleanedPayee).toBe(posTx!.description);
+    } finally {
+      vi.stubEnv("NEXT_PUBLIC_DEV_TOOLS", "");
+    }
+  });
+});
 
 describe("end-to-end: parse → export", () => {
   it("produces valid Lunch Money CSV from sample_input.csv", () => {
