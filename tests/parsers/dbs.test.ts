@@ -458,6 +458,201 @@ describe("parseTrace", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Format validation — rejection and catch-all
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a minimal DBS CSV with one data row from the given fields.
+ * Uses 6 blank metadata rows + header + 1 data row.
+ */
+function buildCsv(fields: {
+  date?: string;
+  code?: string;
+  description?: string;
+  ref1?: string;
+  ref2?: string;
+  ref3?: string;
+  debit?: string;
+  credit?: string;
+}): string {
+  const meta = "row1\nrow2\nrow3\nrow4\nrow5\nrow6\n";
+  const header =
+    "Transaction Date,Transaction Code,Description,Transaction Ref1,Transaction Ref2,Transaction Ref3,Status,Debit Amount,Credit Amount\n";
+  const row = [
+    fields.date ?? "23 Feb 2026",
+    fields.code ?? "POS",
+    fields.description ?? "",
+    fields.ref1 ?? "",
+    fields.ref2 ?? "",
+    fields.ref3 ?? "",
+    "",
+    fields.debit ?? "10.00",
+    fields.credit ?? "",
+  ].join(",");
+  return meta + header + row + "\n";
+}
+
+describe("format validation — cleaner rejection", () => {
+  it("POS: returns Unknown Format when ref2 lacks TO: prefix", () => {
+    const csv = buildCsv({
+      code: "POS",
+      ref1: "NETS QR PAYMENT ABC123",
+      ref2: "SOME MERCHANT",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Unknown Format");
+    expect(tx.notes).toBe("");
+  });
+
+  it("POS: returns Unknown Format when ref1 doesn't match NETS QR pattern", () => {
+    const csv = buildCsv({
+      code: "POS",
+      ref1: "SOME OTHER PAYMENT",
+      ref2: "TO: MERCHANT",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Unknown Format");
+  });
+
+  it("MST: returns Unknown Format when ref1 lacks acquirer suffix", () => {
+    const csv = buildCsv({
+      code: "MST",
+      ref1: "JUST A MERCHANT NAME",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Unknown Format");
+    expect(tx.notes).toBe("");
+  });
+
+  it("ICT: returns Unknown Format when PayNow outgoing ref3 lacks OTHR prefix", () => {
+    const csv = buildCsv({
+      code: "ICT",
+      ref1: "PayNow Transfer REF123",
+      ref2: "To: ALICE",
+      ref3: "MISSING PREFIX NOTES",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Unknown Format");
+  });
+
+  it("ICT: returns Unknown Format for incoming external bank (no defined pattern)", () => {
+    const csv = buildCsv({
+      code: "ICT",
+      ref1: "RANDOM ALPHANUMERIC STRING",
+      ref2: "MORE RANDOM DATA",
+      ref3: "YET MORE DATA",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Unknown Format");
+    expect(tx.notes).toBe("");
+  });
+
+  it("ITR: returns Unknown Format when DBS outgoing ref3 lacks OTHR prefix", () => {
+    const csv = buildCsv({
+      code: "ITR",
+      ref1: "DBS:I-BANK",
+      ref2: "1234567890",
+      ref3: "MISSING PREFIX NOTES 999",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Unknown Format");
+  });
+
+  it("ITR: returns Unknown Format for unrecognised sub-type", () => {
+    const csv = buildCsv({
+      code: "ITR",
+      ref1: "UNKNOWN SUBTYPE",
+      ref2: "SOMETHING",
+      ref3: "SOMETHING ELSE",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Unknown Format");
+    expect(tx.notes).toBe("");
+  });
+});
+
+describe("format validation — happy-path via buildCsv", () => {
+  it("ITR: PayLah! top-up returns payee PayLah! with notes Top-Up", () => {
+    const csv = buildCsv({
+      code: "ITR",
+      ref1: "TOP UP TO PAYLAH! :",
+      ref2: "91234567",
+      ref3: "REF123",
+      debit: "50.00",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("PayLah!");
+    expect(tx.notes).toBe("Top-Up");
+  });
+
+  it("ITR: outgoing DBS transfer extracts notes from ref3", () => {
+    const csv = buildCsv({
+      code: "ITR",
+      ref1: "DBS:I-BANK",
+      ref2: "1234567890",
+      ref3: "OTHR lunch money 99999",
+      debit: "25.00",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Dbs");
+    expect(tx.notes).toBe("lunch money");
+  });
+
+  it("ITR: incoming DBS transfer detected via ref2 :IB suffix", () => {
+    const csv = buildCsv({
+      code: "ITR",
+      ref1: "SOME REF STRING",
+      ref2: "0012345678:IB",
+      ref3: "",
+      credit: "100.00",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Dbs");
+    expect(tx.notes).toBe("");
+  });
+});
+
+describe("catch-all fallback", () => {
+  it("unknown transaction code produces Unknown Format", () => {
+    const csv = buildCsv({
+      code: "XYZ",
+      description: "SOME SENSITIVE DESCRIPTION",
+      ref1: "REF DATA",
+      ref2: "MORE DATA",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Unknown Format");
+    expect(tx.notes).toBe("");
+  });
+
+  it("known code with bad format produces Unknown Format (no PII leakage)", () => {
+    const csv = buildCsv({
+      code: "POS",
+      description: "SECRET ACCOUNT 1234-5678-9012-3456",
+      ref1: "MALFORMED REF1",
+      ref2: "MALFORMED REF2",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Unknown Format");
+    expect(tx.notes).toBe("");
+  });
+
+  it("catch-all does not leak any raw field data", () => {
+    const csv = buildCsv({
+      code: "ZZZ",
+      description: "PHONE 91234567 ACCT 001234567890",
+      ref1: "PHONE 91234567",
+      ref2: "ACCT 001234567890",
+      ref3: "SENSITIVE REF3",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).not.toContain("91234567");
+    expect(tx.description).not.toContain("001234567890");
+    expect(tx.notes).toBe("");
+  });
+});
+
 describe("end-to-end: parse → export", () => {
   it("produces valid Lunch Money CSV from sample_input.csv", () => {
     const csv = generateLunchMoneyCsv(transactions);
