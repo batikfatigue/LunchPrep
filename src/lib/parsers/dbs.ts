@@ -11,6 +11,7 @@
 import Papa from "papaparse";
 import type { BankParser, RawTransaction } from "@/lib/parsers/types";
 import dbsCodes from "@/lib/parsers/data/dbs_codes.json";
+import fastPurposeCodes from "@/lib/parsers/data/fast_purpose_codes.json";
 
 /** Number of metadata rows to skip before the header row in DBS CSVs. */
 const DBS_METADATA_ROWS = 6;
@@ -184,6 +185,41 @@ function isReferenceToken(notes: string): boolean {
   return trimmed.length >= 15 && /^[A-Za-z0-9-]+$/.test(trimmed);
 }
 
+/**
+ * Resolve a FAST purpose code to a human-readable label.
+ *
+ * Resolution order:
+ * 1. "INT" → "Intra Company Payment" (hardcoded DBS exception — DBS emits "INT" instead of "INTC")
+ * 2. "OTHR" → null (default code, no user intent)
+ * 3. Lookup in fast_purpose_codes.json → resolved label
+ * 4. Unknown → null + console.warn
+ *
+ * @param code - 3-4 letter FAST purpose code extracted from Ref3.
+ * @returns Human-readable label, or null if suppressed/unknown.
+ */
+function resolvePurposeCode(code: string): string | null {
+  const upper = code.toUpperCase();
+
+  // Reason: DBS emits "INT" for intra-company payments — a typo for "INTC".
+  // Hardcoded as a strict one-off exception rather than adding to the canonical FAST codes file.
+  if (upper === "INT") {
+    return "Intra Company Payment";
+  }
+
+  // Reason: "OTHR" is the unmodified default — carries no user intent.
+  if (upper === "OTHR") {
+    return null;
+  }
+
+  const label = (fastPurposeCodes as Record<string, string>)[upper];
+  if (label) {
+    return label;
+  }
+
+  console.warn(`Unknown FAST purpose code: ${upper}`);
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Per-code cleaners
 // ---------------------------------------------------------------------------
@@ -240,7 +276,7 @@ function cleanMST(ref1: string): CleanedFields | null {
  *
  * @param ref1 - Transaction Ref1 identifying the sub-type.
  * @param ref2 - Transaction Ref2 containing payee name or user note.
- * @param ref3 - Transaction Ref3 containing OTHR notes or reference.
+ * @param ref3 - Transaction Ref3 containing OTHR notes (PayNow) or purpose code + reference (interbank).
  * @returns Cleaned payee and notes, or null on format mismatch.
  */
 function cleanICT(ref1: string, ref2: string, ref3: string): CleanedFields | null {
@@ -270,17 +306,29 @@ function cleanICT(ref1: string, ref2: string, ref3: string): CleanedFields | nul
     return { payee, notes };
   }
 
-  // External bank outgoing: "<BANK>:<ACCOUNT>:I-BANK"
+  // Outgoing interbank (account transfer): "<BANK>:<ACCOUNT>:I-BANK"
   if (/^[^:]+:[^:]+:I-BANK$/i.test(ref1)) {
-    // Reason: ref3 must have "OTHR" prefix for external bank outgoing.
-    if (!/^OTHR\s/i.test(ref3)) {
+    // Reason: ref3 must be "<PURPOSE CODE> <REF>" — either "INT" (3-letter DBS exception)
+    // or a standard 4-letter FAST code, followed by a space.
+    if (!/^(INT|[A-Z]{4})\s/i.test(ref3)) {
       return null;
     }
     const bankName = ref1.split(":")[0];
     const payee = titleCase(bankName);
-    // Reason: For external bank transfers, user input note is in Ref2 (no OTHR prefix).
-    // Ref3 is just "OTHR <reference number>" — discard it.
-    const notes = ref2.trim();
+
+    // Reason: First token of ref3 is the FAST purpose code; rest is a reference number (discarded).
+    const purposeCode = ref3.split(/\s/)[0];
+    const purposeLabel = resolvePurposeCode(purposeCode);
+
+    // Reason: User input note is in ref2 (no OTHR prefix).
+    // Suppress default "Transfer" placeholder — same rationale as OTHR / PayNow transfer.
+    const ref2Notes = ref2.trim().toLowerCase() === "transfer" ? "" : ref2.trim();
+
+    // Reason: Purpose-first, pipe-delimited format consolidating both user inputs.
+    const notes =
+      purposeLabel && ref2Notes
+        ? `${purposeLabel} | ${ref2Notes}`
+        : purposeLabel ?? ref2Notes;
     return { payee, notes };
   }
 

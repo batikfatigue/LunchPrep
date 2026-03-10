@@ -298,12 +298,93 @@ describe("ICT PayNow cleaning", () => {
 // ---------------------------------------------------------------------------
 
 describe("ICT external bank cleaning", () => {
-  it("extracts bank name from external transfer", () => {
+  it("extracts bank name and suppresses OTHR purpose code", () => {
     const tx = findTx("Trus:0142345678:I-BANK");
     expect(tx).toBeDefined();
     expect(tx!.description).toBe("Trus");
-    expect(tx!.notes).toBe("Transfer");
+    expect(tx!.notes).toBe("");
     expect(tx!.amount).toBe(100);
+  });
+
+  it("resolves known purpose code and prepends to notes (SALA)", () => {
+    const csv = buildCsv({
+      code: "ICT",
+      ref1: "Xfer:9876543210:I-BANK",
+      ref2: "Monthly transfer",
+      ref3: "SALA 20260210ABC123",
+      debit: "500.00",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Xfer");
+    expect(tx.notes).toBe("Salary Payment | Monthly transfer");
+  });
+
+  it("resolves INT as Intra Company Payment (DBS exception)", () => {
+    const csv = buildCsv({
+      code: "ICT",
+      ref1: "SCL:0011223344:I-BANK",
+      ref2: "Q1 Payment",
+      ref3: "INT 99887766554433221100",
+      debit: "1000.00",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Scl");
+    expect(tx.notes).toBe("Intra Company Payment | Q1 Payment");
+  });
+
+  it("shows only purpose label when ref2 is empty", () => {
+    const csv = buildCsv({
+      code: "ICT",
+      ref1: "Trus:0142345678:I-BANK",
+      ref2: "",
+      ref3: "INVS 17712569475193992000",
+      debit: "200.00",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Trus");
+    expect(tx.notes).toBe("Investment & Securities");
+  });
+
+  it("shows only ref2 notes when purpose code is OTHR", () => {
+    const csv = buildCsv({
+      code: "ICT",
+      ref1: "Trus:0142345678:I-BANK",
+      ref2: "Savings top-up",
+      ref3: "OTHR 17712569475193992000",
+      debit: "100.00",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Trus");
+    expect(tx.notes).toBe("Savings top-up");
+  });
+
+  it("returns empty notes when both OTHR and ref2 empty", () => {
+    const csv = buildCsv({
+      code: "ICT",
+      ref1: "Trus:0142345678:I-BANK",
+      ref2: "",
+      ref3: "OTHR 17712569475193992000",
+      debit: "50.00",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Trus");
+    expect(tx.notes).toBe("");
+  });
+
+  it("suppresses unknown purpose code with warning", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const csv = buildCsv({
+      code: "ICT",
+      ref1: "Xfer:9876543210:I-BANK",
+      ref2: "Test note",
+      ref3: "ZZZZ 12345678901234567890",
+      debit: "10.00",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Xfer");
+    expect(tx.notes).toBe("Test note");
+    expect(warnSpy).toHaveBeenCalledWith("Unknown FAST purpose code: ZZZZ");
+    warnSpy.mockRestore();
   });
 });
 
@@ -534,6 +615,18 @@ describe("format validation — cleaner rejection", () => {
     });
     const [tx] = dbsParser.parse(csv);
     expect(tx.description).toBe("Unknown Format");
+  });
+
+  it("ICT: returns Unknown Format when outgoing interbank ref3 has invalid purpose code structure", () => {
+    const csv = buildCsv({
+      code: "ICT",
+      ref1: "Trus:0142345678:I-BANK",
+      ref2: "Some notes",
+      ref3: "TOOLONG 12345678",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Unknown Format");
+    expect(tx.notes).toBe("");
   });
 
   it("ICT: returns Unknown Format for incoming external bank (no defined pattern)", () => {
