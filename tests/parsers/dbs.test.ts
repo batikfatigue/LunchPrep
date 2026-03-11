@@ -5,6 +5,7 @@ import { dbsParser } from "@/lib/parsers/dbs";
 import { detectAndParse } from "@/lib/parsers/registry";
 import type { RawTransaction } from "@/lib/parsers/types";
 import { generateLunchMoneyCsv } from "@/lib/exporter/lunchmoney";
+import { buildCsv } from "@/dev-tools/pipeline-inspector/mock-csv";
 
 /** Raw CSV content loaded from sample_input.csv */
 let sampleCsv: string;
@@ -543,37 +544,6 @@ describe("parseTrace", () => {
 // Format validation — rejection and catch-all
 // ---------------------------------------------------------------------------
 
-/**
- * Build a minimal DBS CSV with one data row from the given fields.
- * Uses 6 blank metadata rows + header + 1 data row.
- */
-function buildCsv(fields: {
-  date?: string;
-  code?: string;
-  description?: string;
-  ref1?: string;
-  ref2?: string;
-  ref3?: string;
-  debit?: string;
-  credit?: string;
-}): string {
-  const meta = "row1\nrow2\nrow3\nrow4\nrow5\nrow6\n";
-  const header =
-    "Transaction Date,Transaction Code,Description,Transaction Ref1,Transaction Ref2,Transaction Ref3,Status,Debit Amount,Credit Amount\n";
-  const row = [
-    fields.date ?? "23 Feb 2026",
-    fields.code ?? "POS",
-    fields.description ?? "",
-    fields.ref1 ?? "",
-    fields.ref2 ?? "",
-    fields.ref3 ?? "",
-    "",
-    fields.debit ?? "10.00",
-    fields.credit ?? "",
-  ].join(",");
-  return meta + header + row + "\n";
-}
-
 describe("format validation — cleaner rejection", () => {
   it("POS: returns Unknown Format when ref2 lacks TO: prefix", () => {
     const csv = buildCsv({
@@ -710,9 +680,8 @@ describe("catch-all fallback", () => {
   it("unknown transaction code produces Unknown Format", () => {
     const csv = buildCsv({
       code: "XYZ",
-      description: "SOME SENSITIVE DESCRIPTION",
-      ref1: "REF DATA",
-      ref2: "MORE DATA",
+      ref1: "SOME SENSITIVE",
+      ref2: "REF DATA",
     });
     const [tx] = dbsParser.parse(csv);
     expect(tx.description).toBe("Unknown Format");
@@ -722,7 +691,6 @@ describe("catch-all fallback", () => {
   it("known code with bad format produces Unknown Format (no PII leakage)", () => {
     const csv = buildCsv({
       code: "POS",
-      description: "SECRET ACCOUNT 1234-5678-9012-3456",
       ref1: "MALFORMED REF1",
       ref2: "MALFORMED REF2",
     });
@@ -734,7 +702,6 @@ describe("catch-all fallback", () => {
   it("catch-all does not leak any raw field data", () => {
     const csv = buildCsv({
       code: "ZZZ",
-      description: "PHONE 91234567 ACCT 001234567890",
       ref1: "PHONE 91234567",
       ref2: "ACCT 001234567890",
       ref3: "SENSITIVE REF3",

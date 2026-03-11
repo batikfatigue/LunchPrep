@@ -1,4 +1,4 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: Render as inline detail pane on main page
 The pipeline inspector SHALL be mounted as a detail pane below the transaction
@@ -19,30 +19,6 @@ The inspector SHALL additionally receive `categories` and `apiKey` props from th
 #### Scenario: Props include categories and apiKey
 - **WHEN** the inspector is rendered
 - **THEN** it receives `categories` (string[]) and `apiKey` (string) from page-level state
-
-### Requirement: Select a transaction by clicking a table row
-Clicking a row in the transaction table SHALL select that transaction for
-inspection. `page.tsx` SHALL maintain a `selectedIndex` state variable passed
-to both `TransactionTable` (to highlight the row) and `PipelineInspector`
-(to determine which transaction to show). The selection SHALL persist across
-table pagination — navigating to a different page does not clear it.
-
-#### Scenario: Row clicked to select
-- **WHEN** user clicks a row in the transaction table
-- **THEN** the inspector updates to show the clicked transaction's pipeline journey
-- **THEN** the clicked row is visually highlighted in the table
-
-#### Scenario: Selection persists across pagination
-- **WHEN** user selects a row on page 1, then navigates to page 2 of the table
-- **THEN** the inspector still shows the previously selected transaction
-
-#### Scenario: No selection yet
-- **WHEN** the inspector is rendered but no row has been clicked
-- **THEN** a placeholder message is shown indicating no transaction is selected
-
-#### Scenario: No snapshot available
-- **WHEN** the inspector is rendered but no pipeline run has completed
-- **THEN** a placeholder message is shown indicating no data is available
 
 ### Requirement: Display per-stage diff table
 The inspector SHALL render a table with pipeline stages as rows and transaction
@@ -77,24 +53,3 @@ When sandbox data is active, the stage diff table SHALL render from the sandbox-
 #### Scenario: Sandbox data overrides real transaction
 - **WHEN** sandbox data is active
 - **THEN** the stage diff table renders from the sandbox snapshot, not the page-level snapshot
-
-### Requirement: Mark fields that changed from the previous stage
-For each field in each row, the inspector SHALL display a visual change marker
-when the field value differs from the same field in the immediately preceding stage row.
-The first stage row (Raw) SHALL never show change markers.
-
-#### Scenario: Payee changes between Raw and After Clean
-- **WHEN** `originalDescription` differs from `parseTrace.cleanedPayee`
-- **THEN** the `payee` cell in the `After Clean` row displays a change marker
-
-#### Scenario: Notes appear at After Clean
-- **WHEN** `Raw` notes is `"—"` and `After Clean` notes is a non-empty string
-- **THEN** the `notes` cell in the `After Clean` row displays a change marker
-
-#### Scenario: No change between After Clean and After StripPII
-- **WHEN** `parseTrace.cleanedPayee` equals `description` (nothing stripped)
-- **THEN** no change marker appears in the `After StripPII` row
-
-#### Scenario: Card number stripped between After Clean and After StripPII
-- **WHEN** `parseTrace.cleanedPayee` differs from `description`
-- **THEN** the `payee` cell in the `After StripPII` row displays a change marker

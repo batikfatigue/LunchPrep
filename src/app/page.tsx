@@ -384,6 +384,8 @@ export default function Home() {
             <PipelineInspectorDevTool
               snapshots={snapshots}
               selectedIndex={selectedIndex}
+              categories={categories}
+              apiKey={apiKey}
             />
           )}
         </div>

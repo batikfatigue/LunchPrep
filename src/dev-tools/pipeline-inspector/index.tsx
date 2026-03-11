@@ -12,8 +12,10 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import type { PipelineSnapshot, GeminiSentEntry } from "@/lib/pipeline-snapshot";
 import type { RawTransaction } from "@/lib/parsers/types";
+import SandboxInput, { type SandboxResult } from "@/dev-tools/pipeline-inspector/sandbox-input";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -24,6 +26,10 @@ export interface PipelineInspectorProps {
   snapshots: PipelineSnapshot;
   /** Index of the selected transaction row (null = no selection). */
   selectedIndex: number | null;
+  /** Category list for sandbox Full Pipeline mode. */
+  categories: string[];
+  /** Gemini API key for sandbox Full Pipeline mode. */
+  apiKey: string;
 }
 
 /** Ordered pipeline stage names — includes parse sub-stages derived from the `parsed` snapshot. */
@@ -40,8 +46,6 @@ type StageName = (typeof STAGE_ORDER)[number];
 
 /** Columns shown in the stage diff table. */
 const COLUMNS = ["payee", "notes"] as const;
-type ColumnName = (typeof COLUMNS)[number];
-
 /** A normalised row for display — all stages mapped to the same shape. */
 interface StageRow {
   stage: StageName;
@@ -181,99 +185,154 @@ const STAGE_LABELS: Record<StageName, string> = {
 export default function PipelineInspector({
   snapshots,
   selectedIndex,
+  categories,
+  apiKey,
 }: PipelineInspectorProps) {
+  // Sandbox state: when populated, overrides the real snapshot for display
+  const [sandboxSnapshot, setSandboxSnapshot] = React.useState<PipelineSnapshot | null>(null);
+  const [sandboxCategory, setSandboxCategory] = React.useState<string | null>(null);
+
+  /** Handle sandbox execution result. */
+  function handleSandboxExecute(result: SandboxResult) {
+    setSandboxSnapshot(result.snapshot);
+    setSandboxCategory(result.category ?? null);
+  }
+
+  /** Clear sandbox data, restoring the real transaction view. */
+  function handleSandboxClear() {
+    setSandboxSnapshot(null);
+    setSandboxCategory(null);
+  }
+
+  const isSandboxActive = sandboxSnapshot !== null;
+
+  // Determine which snapshot and index to render
+  const activeSnapshot = isSandboxActive ? sandboxSnapshot : snapshots;
+  const activeIndex = isSandboxActive ? 0 : selectedIndex;
+
   const isEmpty = Object.keys(snapshots).length === 0;
+  const showPlaceholder = !isSandboxActive && (isEmpty || selectedIndex === null);
 
-  // Placeholder: no pipeline run yet
-  if (isEmpty) {
-    return (
-      <div className="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-        Pipeline Inspector — Run categorisation to inspect transaction stages.
-      </div>
-    );
+  // Build rows from the active snapshot
+  const rows = activeIndex !== null ? buildStageRows(activeSnapshot, activeIndex) : [];
+
+  // Determine the display label
+  let label: string | null = null;
+  if (isSandboxActive) {
+    const parsed = activeSnapshot.parsed?.[0];
+    label = parsed ? `Sandbox — ${parsed.description}` : "Sandbox";
+  } else if (activeIndex !== null) {
+    const labelSource = activeSnapshot.restored?.[activeIndex] ?? activeSnapshot.parsed?.[activeIndex];
+    const payeeLabel = labelSource
+      ? "description" in labelSource
+        ? (labelSource as RawTransaction).description
+        : (labelSource as GeminiSentEntry).payee
+      : "Unknown";
+    label = `#${activeIndex + 1} — ${payeeLabel}`;
   }
-
-  // Placeholder: no row selected
-  if (selectedIndex === null) {
-    return (
-      <div className="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-        Pipeline Inspector — Click a transaction row to inspect its pipeline journey.
-      </div>
-    );
-  }
-
-  const rows = buildStageRows(snapshots, selectedIndex);
-
-  // Determine the display label: index + payee from restored, falling back to parsed
-  const labelSource = snapshots.restored?.[selectedIndex] ?? snapshots.parsed?.[selectedIndex];
-  const payeeLabel = labelSource
-    ? "description" in labelSource
-      ? (labelSource as RawTransaction).description
-      : (labelSource as GeminiSentEntry).payee
-    : "Unknown";
-  const label = `#${selectedIndex + 1} — ${payeeLabel}`;
 
   return (
-    <div className="rounded-md border">
-      {/* Header */}
-      <div className="border-b bg-muted/50 px-4 py-2">
-        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Pipeline Inspector
-        </h3>
-        <p className="mt-0.5 text-sm font-medium">{label}</p>
-      </div>
+    <div className="flex flex-col gap-4">
+      {/* Sandbox input — always rendered above the inspector */}
+      <SandboxInput
+        categories={categories}
+        apiKey={apiKey}
+        onExecute={handleSandboxExecute}
+      />
 
-      {/* Stage diff table */}
-      <div className="overflow-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              <th className="px-3 py-2">Stage</th>
-              {COLUMNS.map((col) => (
-                <th key={col} className="px-3 py-2">
-                  {col}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, rowIdx) => {
-              const prevRow = rowIdx > 0 ? rows[rowIdx - 1] : undefined;
-              return (
-                <tr key={row.stage} className="border-b last:border-0">
-                  <td className="whitespace-nowrap px-3 py-2 text-xs font-medium text-muted-foreground">
-                    {STAGE_LABELS[row.stage]}
-                  </td>
-                  {COLUMNS.map((col) => {
-                    const value = row[col];
-                    const prevValue = prevRow?.[col];
-                    const changed = hasChanged(value, prevValue);
-                    return (
-                      <td
-                        key={col}
-                        className={cn(
-                          "px-3 py-2",
-                          changed && "bg-yellow-100/60 dark:bg-yellow-900/30",
-                          !value && "text-muted-foreground/50",
-                        )}
-                      >
-                        <span className="flex items-center gap-1">
-                          {changed && (
-                            <span
-                              className="inline-block size-1.5 shrink-0 rounded-full bg-yellow-500"
-                              title="Changed from previous stage"
-                            />
-                          )}
-                          {value || "—"}
-                        </span>
-                      </td>
-                    );
-                  })}
+      {/* Inspector panel */}
+      <div className="rounded-md border">
+        {/* Header */}
+        <div className="flex items-start justify-between border-b bg-muted/50 px-4 py-2">
+          <div>
+            <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Pipeline Inspector
+            </h3>
+            {label && <p className="mt-0.5 text-sm font-medium">{label}</p>}
+          </div>
+          {isSandboxActive && (
+            <Button variant="ghost" size="sm" onClick={handleSandboxClear}>
+              Clear
+            </Button>
+          )}
+        </div>
+
+        {/* Placeholder states */}
+        {showPlaceholder && (
+          <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+            {isEmpty
+              ? "Run categorisation to inspect transaction stages."
+              : "Click a transaction row to inspect its pipeline journey."}
+          </div>
+        )}
+
+        {/* Stage diff table */}
+        {!showPlaceholder && rows.length > 0 && (
+          <div className="overflow-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <th className="px-3 py-2">Stage</th>
+                  {COLUMNS.map((col) => (
+                    <th key={col} className="px-3 py-2">
+                      {col}
+                    </th>
+                  ))}
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {rows.map((row, rowIdx) => {
+                  const prevRow = rowIdx > 0 ? rows[rowIdx - 1] : undefined;
+                  return (
+                    <tr key={row.stage} className="border-b last:border-0">
+                      <td className="whitespace-nowrap px-3 py-2 text-xs font-medium text-muted-foreground">
+                        {STAGE_LABELS[row.stage]}
+                      </td>
+                      {COLUMNS.map((col) => {
+                        const value = row[col];
+                        const prevValue = prevRow?.[col];
+                        const changed = hasChanged(value, prevValue);
+                        return (
+                          <td
+                            key={col}
+                            className={cn(
+                              "px-3 py-2",
+                              changed && "bg-yellow-100/60 dark:bg-yellow-900/30",
+                              !value && "text-muted-foreground/50",
+                            )}
+                          >
+                            <span className="flex items-center gap-1">
+                              {changed && (
+                                <span
+                                  className="inline-block size-1.5 shrink-0 rounded-full bg-yellow-500"
+                                  title="Changed from previous stage"
+                                />
+                              )}
+                              {value || "—"}
+                            </span>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* API Result Panel — shown only for sandbox Full Pipeline runs */}
+        {isSandboxActive && sandboxCategory !== null && (
+          <div className="border-t bg-muted/30 px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              API Result
+            </p>
+            <p className="mt-1 text-sm">
+              <span className="text-muted-foreground">Category:</span>{" "}
+              <span className="font-medium">{sandboxCategory}</span>
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
