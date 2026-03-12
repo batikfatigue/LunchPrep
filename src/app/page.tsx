@@ -24,6 +24,7 @@ import {
 } from "@/components/transaction-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 import { useLocalStorage } from "@/hooks/use-local-storage";
 
@@ -259,11 +260,14 @@ export default function Home() {
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
       {/* Header */}
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">LunchPrep</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Convert Singapore bank CSVs into Lunch Money imports with AI categorisation.
-        </p>
+      <header className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">LunchPrep</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Convert Singapore bank CSVs into Lunch Money imports with AI categorisation.
+          </p>
+        </div>
+        <ThemeToggle />
       </header>
 
       {/* Pipeline step indicator */}
