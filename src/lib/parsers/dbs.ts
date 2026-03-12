@@ -11,6 +11,7 @@
 import Papa from "papaparse";
 import type { BankParser, RawTransaction } from "@/lib/parsers/types";
 import dbsCodes from "@/lib/parsers/data/dbs_codes.json";
+import fastPurposeCodes from "@/lib/parsers/data/fast_purpose_codes.json";
 
 /** Number of metadata rows to skip before the header row in DBS CSVs. */
 const DBS_METADATA_ROWS = 6;
@@ -184,6 +185,41 @@ function isReferenceToken(notes: string): boolean {
   return trimmed.length >= 15 && /^[A-Za-z0-9-]+$/.test(trimmed);
 }
 
+/**
+ * Resolve a FAST purpose code to a human-readable label.
+ *
+ * Resolution order:
+ * 1. "INT" → "Intra Company Payment" (hardcoded DBS exception — DBS emits "INT" instead of "INTC")
+ * 2. "OTHR" → null (default code, no user intent)
+ * 3. Lookup in fast_purpose_codes.json → resolved label
+ * 4. Unknown → null + console.warn
+ *
+ * @param code - 3-4 letter FAST purpose code extracted from Ref3.
+ * @returns Human-readable label, or null if suppressed/unknown.
+ */
+function resolvePurposeCode(code: string): string | null {
+  const upper = code.toUpperCase();
+
+  // Reason: DBS emits "INT" for intra-company payments — a typo for "INTC".
+  // Hardcoded as a strict one-off exception rather than adding to the canonical FAST codes file.
+  if (upper === "INT") {
+    return "Intra Company Payment";
+  }
+
+  // Reason: "OTHR" is the unmodified default — carries no user intent.
+  if (upper === "OTHR") {
+    return null;
+  }
+
+  const label = (fastPurposeCodes as Record<string, string>)[upper];
+  if (label) {
+    return label;
+  }
+
+  console.warn(`Unknown FAST purpose code: ${upper}`);
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Per-code cleaners
 // ---------------------------------------------------------------------------
@@ -191,12 +227,17 @@ function isReferenceToken(notes: string): boolean {
 /**
  * Clean a POS (NETS QR) transaction.
  * Extracts payee from Ref2 by stripping the "TO: " prefix.
+ * Returns null if ref fields don't match the known POS format.
  *
- * @param _ref1 - Transaction Ref1 (unused for POS).
- * @param ref2 - Transaction Ref2 containing "TO: <MERCHANT>".
- * @returns Cleaned payee and empty notes.
+ * @param ref1 - Transaction Ref1 ("NETS QR PAYMENT <REF>").
+ * @param ref2 - Transaction Ref2 ("TO: <MERCHANT>").
+ * @returns Cleaned payee and empty notes, or null on format mismatch.
  */
-function cleanPOS(_ref1: string, ref2: string): CleanedFields {
+function cleanPOS(ref1: string, ref2: string): CleanedFields | null {
+  // Reason: Full format validation — both ref fields must match known POS structure.
+  if (!/^NETS QR PAYMENT\s+\S+$/i.test(ref1) || !/^TO:\s+.+$/i.test(ref2)) {
+    return null;
+  }
   const payee = titleCase(ref2.replace(/^TO:\s*/i, ""));
   return { payee, notes: "" };
 }
@@ -205,13 +246,18 @@ function cleanPOS(_ref1: string, ref2: string): CleanedFields {
  * Clean an MST/UPI/UMC card payment transaction.
  * Extracts merchant name from Ref1 by stripping acquirer suffix and
  * trailing numeric merchant reference.
+ * Returns null if ref1 doesn't contain the expected acquirer suffix pattern.
  *
  * @param ref1 - Transaction Ref1 containing merchant + acquirer suffix.
- * @returns Cleaned payee and empty notes.
+ * @returns Cleaned payee and empty notes, or null on format mismatch.
  */
-function cleanMST(ref1: string): CleanedFields {
+function cleanMST(ref1: string): CleanedFields | null {
+  // Reason: Full format validation — ref1 must contain an acquirer/country/date suffix.
+  if (!/\s+[A-Za-z]{2,3}\s+[A-Z]{2,3}\s+\d{2}[A-Z]{3}$/i.test(ref1)) {
+    return null;
+  }
+
   // Step 1: Remove acquirer/country/date suffix (e.g. "SI SGP 18FEB")
-  // Reason: The suffix format is <2-3 letter code> <2-3 letter country> <2digit><3letter month>
   let merchant = ref1.replace(/\s+[A-Za-z]{2,3}\s+[A-Z]{2,3}\s+\d{2}[A-Z]{3}$/i, "");
 
   // Step 2: Strip trailing all-numeric merchant reference token
@@ -225,16 +271,21 @@ function cleanMST(ref1: string): CleanedFields {
 
 /**
  * Clean an ICT (interbank transfer) transaction.
- * Handles PayNow (in/out), external bank (in/out) sub-types.
+ * Handles PayNow (in/out) and external bank outgoing sub-types.
+ * Returns null if ref fields don't match any known ICT sub-type pattern.
  *
  * @param ref1 - Transaction Ref1 identifying the sub-type.
  * @param ref2 - Transaction Ref2 containing payee name or user note.
- * @param ref3 - Transaction Ref3 containing OTHR notes or reference.
- * @returns Cleaned payee and notes.
+ * @param ref3 - Transaction Ref3 containing OTHR notes (PayNow) or purpose code + reference (interbank).
+ * @returns Cleaned payee and notes, or null on format mismatch.
  */
-function cleanICT(ref1: string, ref2: string, ref3: string): CleanedFields {
+function cleanICT(ref1: string, ref2: string, ref3: string): CleanedFields | null {
   // PayNow outgoing: "PayNow Transfer <ref>"
-  if (ref1.startsWith("PayNow Transfer")) {
+  if (/^PayNow Transfer\s+\S+$/i.test(ref1)) {
+    // Reason: All three ref fields must match — ref2 must have "To:" prefix, ref3 must have "OTHR" prefix.
+    if (!/^To:\s+.+$/i.test(ref2) || !/^OTHR\s/i.test(ref3)) {
+      return null;
+    }
     const rawPayee = ref2.replace(/^To:\s*/i, "");
     const payee = titleCase(rawPayee);
     const rawNotes = ref3.replace(/^OTHR\s*/i, "").trim();
@@ -243,7 +294,11 @@ function cleanICT(ref1: string, ref2: string, ref3: string): CleanedFields {
   }
 
   // PayNow incoming: "Incoming PayNow Ref <ref>"
-  if (ref1.startsWith("Incoming PayNow")) {
+  if (/^Incoming PayNow Ref\s+\S+$/i.test(ref1)) {
+    // Reason: All three ref fields must match — ref2 must have "From:" prefix, ref3 must have "OTHR" prefix.
+    if (!/^From:\s+.+$/i.test(ref2) || !/^OTHR\s/i.test(ref3)) {
+      return null;
+    }
     const rawPayee = ref2.replace(/^From:\s*/i, "");
     const payee = titleCase(rawPayee);
     const rawNotes = ref3.replace(/^OTHR\s*/i, "").trim();
@@ -251,18 +306,35 @@ function cleanICT(ref1: string, ref2: string, ref3: string): CleanedFields {
     return { payee, notes };
   }
 
-  // External bank outgoing: "<BANK>:<ACCOUNT>:I-BANK"
+  // Outgoing interbank (account transfer): "<BANK>:<ACCOUNT>:I-BANK"
   if (/^[^:]+:[^:]+:I-BANK$/i.test(ref1)) {
+    // Reason: ref3 must be "<PURPOSE CODE> <REF>" — either "INT" (3-letter DBS exception)
+    // or a standard 4-letter FAST code, followed by a space.
+    if (!/^(INT|[A-Z]{4})\s/i.test(ref3)) {
+      return null;
+    }
     const bankName = ref1.split(":")[0];
     const payee = titleCase(bankName);
-    // Reason: For external bank transfers, user input note is in Ref2 (no OTHR prefix).
-    // Ref3 is just "OTHR <reference number>" — discard it.
-    const notes = ref2.trim();
+
+    // Reason: First token of ref3 is the FAST purpose code; rest is a reference number (discarded).
+    const purposeCode = ref3.split(/\s/)[0];
+    const purposeLabel = resolvePurposeCode(purposeCode);
+
+    // Reason: User input note is in ref2 (no OTHR prefix).
+    // Suppress default "Transfer" placeholder — same rationale as OTHR / PayNow transfer.
+    const ref2Notes = ref2.trim().toLowerCase() === "transfer" ? "" : ref2.trim();
+
+    // Reason: Purpose-first, pipe-delimited format consolidating both user inputs.
+    const notes =
+      purposeLabel && ref2Notes
+        ? `${purposeLabel} | ${ref2Notes}`
+        : purposeLabel ?? ref2Notes;
     return { payee, notes };
   }
 
-  // External bank incoming: refs are unmeaningful alphanumeric strings
-  return { payee: "External Transfer", notes: "" };
+  // Reason: Incoming external bank and any other unrecognised ICT patterns
+  // have no defined format — return null so the catch-all handles them safely.
+  return null;
 }
 
 /**
@@ -285,13 +357,15 @@ function cleanICTNotes(rawNotes: string): string {
 
 /**
  * Clean an ITR (DBS-to-DBS transfer) transaction.
- * Handles PayLah! withdrawal/top-up and standard DBS transfers.
+ * Handles PayLah! withdrawal/top-up and standard DBS transfers (in/out).
+ * Returns null if ref fields don't match any known ITR sub-type pattern.
  *
  * @param ref1 - Transaction Ref1 identifying the sub-type.
+ * @param ref2 - Transaction Ref2 (used for incoming DBS detection).
  * @param ref3 - Transaction Ref3 containing OTHR notes (for outgoing transfers).
- * @returns Cleaned payee and notes.
+ * @returns Cleaned payee and notes, or null on format mismatch.
  */
-function cleanITR(ref1: string, ref3: string): CleanedFields {
+function cleanITR(ref1: string, ref2: string, ref3: string): CleanedFields | null {
   // PayLah! withdrawal: "SEND BACK FROM PAYLAH! :"
   if (ref1.startsWith("SEND BACK FROM PAYLAH!")) {
     return { payee: "PayLah!", notes: "Received" };
@@ -304,14 +378,23 @@ function cleanITR(ref1: string, ref3: string): CleanedFields {
 
   // Outgoing DBS transfer: "DBS:I-BANK"
   if (ref1.trim().toUpperCase() === "DBS:I-BANK") {
+    // Reason: ref3 must have "OTHR" prefix for outgoing DBS transfers.
+    if (!/^OTHR\s/i.test(ref3)) {
+      return null;
+    }
     // Reason: Ref3 format is "OTHR <user notes> <trailing ref number>".
     // Strip OTHR prefix and trailing numeric reference.
     const rawNotes = ref3.replace(/^OTHR\s*/i, "").replace(/\s+\d+$/, "").trim();
     return { payee: "Dbs", notes: rawNotes };
   }
 
-  // Incoming DBS transfer: Ref1 is a reference string, Ref2 is "<ACCOUNT>:IB"
-  return { payee: "Dbs", notes: "" };
+  // Incoming DBS transfer: Ref2 is "<ACCOUNT>:IB"
+  if (/^.+:IB$/i.test(ref2)) {
+    return { payee: "Dbs", notes: "" };
+  }
+
+  // Reason: No known ITR sub-type matched — return null for catch-all handling.
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -393,31 +476,27 @@ export const dbsParser: BankParser = {
       const date = parseDate(dateStr);
       const amount = parseAmount(debitStr, creditStr);
 
-      let cleaned: CleanedFields;
+      // Reason: IIFE + ?? ensures a single catch-all for both unknown codes
+      // and known codes where the cleaner returns null (unrecognised format).
+      // The catch-all discards all raw data to prevent PII leakage.
       const codeUpper = code.toUpperCase();
-
-      switch (codeUpper) {
-        case "POS":
-          cleaned = cleanPOS(ref1, ref2);
-          break;
-        case "MST":
-        case "UPI":
-        case "UMC":
-        case "UMC-S":
-          cleaned = cleanMST(ref1);
-          break;
-        case "ICT":
-          cleaned = cleanICT(ref1, ref2, ref3);
-          break;
-        case "ITR":
-          cleaned = cleanITR(ref1, ref3);
-          break;
-        default:
-          // Reason: Unknown transaction codes get a basic clean — title-case
-          // the description and leave notes empty.
-          cleaned = { payee: titleCase(description), notes: "" };
-          break;
-      }
+      const cleaned: CleanedFields = (() => {
+        switch (codeUpper) {
+          case "POS":
+            return cleanPOS(ref1, ref2);
+          case "MST":
+          case "UPI":
+          case "UMC":
+          case "UMC-S":
+            return cleanMST(ref1);
+          case "ICT":
+            return cleanICT(ref1, ref2, ref3);
+          case "ITR":
+            return cleanITR(ref1, ref2, ref3);
+          default:
+            return null;
+        }
+      })() ?? { payee: "Unknown Format", notes: "" };
 
       // Apply general PII stripping to the payee
       const payee = stripPII(cleaned.payee);
@@ -430,6 +509,10 @@ export const dbsParser: BankParser = {
         transactionCode: lookupTransactionCode(code),
         notes: cleaned.notes,
         originalPII: {},
+        // Dev-tools: pipeline-inspector — capture per-code cleaner output before stripPII
+        ...(process.env.NEXT_PUBLIC_DEV_TOOLS === "true" && {
+          parseTrace: { cleanedPayee: cleaned.payee },
+        }),
       });
     }
 

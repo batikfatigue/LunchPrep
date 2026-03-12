@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, vi, afterAll } from "vitest";
 import { readFileSync } from "fs";
 import path from "path";
 import { dbsParser } from "@/lib/parsers/dbs";
 import { detectAndParse } from "@/lib/parsers/registry";
 import type { RawTransaction } from "@/lib/parsers/types";
 import { generateLunchMoneyCsv } from "@/lib/exporter/lunchmoney";
+import { buildCsv } from "@/dev-tools/pipeline-inspector/mock-csv";
 
 /** Raw CSV content loaded from sample_input.csv */
 let sampleCsv: string;
@@ -298,12 +299,93 @@ describe("ICT PayNow cleaning", () => {
 // ---------------------------------------------------------------------------
 
 describe("ICT external bank cleaning", () => {
-  it("extracts bank name from external transfer", () => {
+  it("extracts bank name and suppresses OTHR purpose code", () => {
     const tx = findTx("Trus:0142345678:I-BANK");
     expect(tx).toBeDefined();
     expect(tx!.description).toBe("Trus");
-    expect(tx!.notes).toBe("Transfer");
+    expect(tx!.notes).toBe("");
     expect(tx!.amount).toBe(100);
+  });
+
+  it("resolves known purpose code and prepends to notes (SALA)", () => {
+    const csv = buildCsv({
+      code: "ICT",
+      ref1: "Xfer:9876543210:I-BANK",
+      ref2: "Monthly transfer",
+      ref3: "SALA 20260210ABC123",
+      debit: "500.00",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Xfer");
+    expect(tx.notes).toBe("Salary Payment | Monthly transfer");
+  });
+
+  it("resolves INT as Intra Company Payment (DBS exception)", () => {
+    const csv = buildCsv({
+      code: "ICT",
+      ref1: "SCL:0011223344:I-BANK",
+      ref2: "Q1 Payment",
+      ref3: "INT 99887766554433221100",
+      debit: "1000.00",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Scl");
+    expect(tx.notes).toBe("Intra Company Payment | Q1 Payment");
+  });
+
+  it("shows only purpose label when ref2 is empty", () => {
+    const csv = buildCsv({
+      code: "ICT",
+      ref1: "Trus:0142345678:I-BANK",
+      ref2: "",
+      ref3: "INVS 17712569475193992000",
+      debit: "200.00",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Trus");
+    expect(tx.notes).toBe("Investment & Securities");
+  });
+
+  it("shows only ref2 notes when purpose code is OTHR", () => {
+    const csv = buildCsv({
+      code: "ICT",
+      ref1: "Trus:0142345678:I-BANK",
+      ref2: "Savings top-up",
+      ref3: "OTHR 17712569475193992000",
+      debit: "100.00",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Trus");
+    expect(tx.notes).toBe("Savings top-up");
+  });
+
+  it("returns empty notes when both OTHR and ref2 empty", () => {
+    const csv = buildCsv({
+      code: "ICT",
+      ref1: "Trus:0142345678:I-BANK",
+      ref2: "",
+      ref3: "OTHR 17712569475193992000",
+      debit: "50.00",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Trus");
+    expect(tx.notes).toBe("");
+  });
+
+  it("suppresses unknown purpose code with warning", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const csv = buildCsv({
+      code: "ICT",
+      ref1: "Xfer:9876543210:I-BANK",
+      ref2: "Test note",
+      ref3: "ZZZZ 12345678901234567890",
+      debit: "10.00",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Xfer");
+    expect(tx.notes).toBe("Test note");
+    expect(warnSpy).toHaveBeenCalledWith("Unknown FAST purpose code: ZZZZ");
+    warnSpy.mockRestore();
   });
 });
 
@@ -408,6 +490,228 @@ describe("detectAndParse", () => {
 // ---------------------------------------------------------------------------
 // End-to-end integration: parse → export
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// parseTrace (dev-tools gate)
+// ---------------------------------------------------------------------------
+
+describe("parseTrace", () => {
+  it("is absent when NEXT_PUBLIC_DEV_TOOLS is not set", () => {
+    // Default env — dev tools not enabled
+    for (const tx of transactions) {
+      expect(tx.parseTrace).toBeUndefined();
+    }
+  });
+
+  it("is populated when NEXT_PUBLIC_DEV_TOOLS is 'true'", () => {
+    const originalVal = process.env.NEXT_PUBLIC_DEV_TOOLS;
+    vi.stubEnv("NEXT_PUBLIC_DEV_TOOLS", "true");
+
+    try {
+      const devTransactions = dbsParser.parse(sampleCsv);
+      for (const tx of devTransactions) {
+        expect(tx.parseTrace).toBeDefined();
+        expect(typeof tx.parseTrace!.cleanedPayee).toBe("string");
+        expect(tx.parseTrace!.cleanedPayee.length).toBeGreaterThan(0);
+      }
+    } finally {
+      if (originalVal === undefined) {
+        vi.stubEnv("NEXT_PUBLIC_DEV_TOOLS", "");
+      } else {
+        vi.stubEnv("NEXT_PUBLIC_DEV_TOOLS", originalVal);
+      }
+    }
+  });
+
+  it("cleanedPayee matches description when stripPII changes nothing", () => {
+    vi.stubEnv("NEXT_PUBLIC_DEV_TOOLS", "true");
+
+    try {
+      const devTransactions = dbsParser.parse(sampleCsv);
+      // POS transactions have no card numbers — cleanedPayee should equal description
+      const posTx = devTransactions.find((t) =>
+        t.originalDescription.includes("NOODLE HOUSE STALL"),
+      );
+      expect(posTx).toBeDefined();
+      expect(posTx!.parseTrace!.cleanedPayee).toBe(posTx!.description);
+    } finally {
+      vi.stubEnv("NEXT_PUBLIC_DEV_TOOLS", "");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Format validation — rejection and catch-all
+// ---------------------------------------------------------------------------
+
+describe("format validation — cleaner rejection", () => {
+  it("POS: returns Unknown Format when ref2 lacks TO: prefix", () => {
+    const csv = buildCsv({
+      code: "POS",
+      ref1: "NETS QR PAYMENT ABC123",
+      ref2: "SOME MERCHANT",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Unknown Format");
+    expect(tx.notes).toBe("");
+  });
+
+  it("POS: returns Unknown Format when ref1 doesn't match NETS QR pattern", () => {
+    const csv = buildCsv({
+      code: "POS",
+      ref1: "SOME OTHER PAYMENT",
+      ref2: "TO: MERCHANT",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Unknown Format");
+  });
+
+  it("MST: returns Unknown Format when ref1 lacks acquirer suffix", () => {
+    const csv = buildCsv({
+      code: "MST",
+      ref1: "JUST A MERCHANT NAME",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Unknown Format");
+    expect(tx.notes).toBe("");
+  });
+
+  it("ICT: returns Unknown Format when PayNow outgoing ref3 lacks OTHR prefix", () => {
+    const csv = buildCsv({
+      code: "ICT",
+      ref1: "PayNow Transfer REF123",
+      ref2: "To: ALICE",
+      ref3: "MISSING PREFIX NOTES",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Unknown Format");
+  });
+
+  it("ICT: returns Unknown Format when outgoing interbank ref3 has invalid purpose code structure", () => {
+    const csv = buildCsv({
+      code: "ICT",
+      ref1: "Trus:0142345678:I-BANK",
+      ref2: "Some notes",
+      ref3: "TOOLONG 12345678",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Unknown Format");
+    expect(tx.notes).toBe("");
+  });
+
+  it("ICT: returns Unknown Format for incoming external bank (no defined pattern)", () => {
+    const csv = buildCsv({
+      code: "ICT",
+      ref1: "RANDOM ALPHANUMERIC STRING",
+      ref2: "MORE RANDOM DATA",
+      ref3: "YET MORE DATA",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Unknown Format");
+    expect(tx.notes).toBe("");
+  });
+
+  it("ITR: returns Unknown Format when DBS outgoing ref3 lacks OTHR prefix", () => {
+    const csv = buildCsv({
+      code: "ITR",
+      ref1: "DBS:I-BANK",
+      ref2: "1234567890",
+      ref3: "MISSING PREFIX NOTES 999",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Unknown Format");
+  });
+
+  it("ITR: returns Unknown Format for unrecognised sub-type", () => {
+    const csv = buildCsv({
+      code: "ITR",
+      ref1: "UNKNOWN SUBTYPE",
+      ref2: "SOMETHING",
+      ref3: "SOMETHING ELSE",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Unknown Format");
+    expect(tx.notes).toBe("");
+  });
+});
+
+describe("format validation — happy-path via buildCsv", () => {
+  it("ITR: PayLah! top-up returns payee PayLah! with notes Top-Up", () => {
+    const csv = buildCsv({
+      code: "ITR",
+      ref1: "TOP UP TO PAYLAH! :",
+      ref2: "91234567",
+      ref3: "REF123",
+      debit: "50.00",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("PayLah!");
+    expect(tx.notes).toBe("Top-Up");
+  });
+
+  it("ITR: outgoing DBS transfer extracts notes from ref3", () => {
+    const csv = buildCsv({
+      code: "ITR",
+      ref1: "DBS:I-BANK",
+      ref2: "1234567890",
+      ref3: "OTHR lunch money 99999",
+      debit: "25.00",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Dbs");
+    expect(tx.notes).toBe("lunch money");
+  });
+
+  it("ITR: incoming DBS transfer detected via ref2 :IB suffix", () => {
+    const csv = buildCsv({
+      code: "ITR",
+      ref1: "SOME REF STRING",
+      ref2: "0012345678:IB",
+      ref3: "",
+      credit: "100.00",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Dbs");
+    expect(tx.notes).toBe("");
+  });
+});
+
+describe("catch-all fallback", () => {
+  it("unknown transaction code produces Unknown Format", () => {
+    const csv = buildCsv({
+      code: "XYZ",
+      ref1: "SOME SENSITIVE",
+      ref2: "REF DATA",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Unknown Format");
+    expect(tx.notes).toBe("");
+  });
+
+  it("known code with bad format produces Unknown Format (no PII leakage)", () => {
+    const csv = buildCsv({
+      code: "POS",
+      ref1: "MALFORMED REF1",
+      ref2: "MALFORMED REF2",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).toBe("Unknown Format");
+    expect(tx.notes).toBe("");
+  });
+
+  it("catch-all does not leak any raw field data", () => {
+    const csv = buildCsv({
+      code: "ZZZ",
+      ref1: "PHONE 91234567",
+      ref2: "ACCT 001234567890",
+      ref3: "SENSITIVE REF3",
+    });
+    const [tx] = dbsParser.parse(csv);
+    expect(tx.description).not.toContain("91234567");
+    expect(tx.description).not.toContain("001234567890");
+    expect(tx.notes).toBe("");
+  });
+});
 
 describe("end-to-end: parse → export", () => {
   it("produces valid Lunch Money CSV from sample_input.csv", () => {

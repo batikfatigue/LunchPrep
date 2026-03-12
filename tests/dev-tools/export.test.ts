@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   buildReviewMarkdown,
   extractTransactionPayload,
-} from "@/dev-tools/categorisation-debugger/export";
+} from "@/dev-tools/pipeline-inspector/export";
+import type { ReviewStatus } from "@/dev-tools/pipeline-inspector/review-controls";
 import type { RawTransaction } from "@/lib/parsers/types";
 import type { DebugData } from "@/lib/categoriser/client";
 
@@ -43,7 +44,7 @@ function makeDebugData(
 // ---------------------------------------------------------------------------
 
 describe("buildReviewMarkdown", () => {
-  it("includes only annotated transactions in the report", () => {
+  it("includes only flagged transactions in the report", () => {
     const txs = [
       makeTx({ originalDescription: "TX-A" }),
       makeTx({ originalDescription: "TX-B" }),
@@ -54,35 +55,43 @@ describe("buildReviewMarkdown", () => {
       [1, "Transport"],
       [2, "Shopping"],
     ]);
-    // Only annotate index 1
-    const annotations = new Map<number, string>([[1, "Wrong category"]]);
+    // Only flag index 1
+    const reviewMap = new Map<number, ReviewStatus>([
+      [1, { status: "flagged", note: "Wrong category" }],
+    ]);
 
-    const md = buildReviewMarkdown(txs, categoryMap, null, annotations);
+    const md = buildReviewMarkdown(txs, categoryMap, null, reviewMap);
 
     expect(md).toContain("TX-B");
     expect(md).not.toContain("TX-A");
     expect(md).not.toContain("TX-C");
   });
 
-  it("produces empty-state message when no annotations exist", () => {
+  it("produces empty-state message when no flagged entries exist", () => {
     const txs = [makeTx()];
     const categoryMap = new Map<number, string>([[0, "Food"]]);
-    const annotations = new Map<number, string>();
+    const reviewMap = new Map<number, ReviewStatus>();
 
-    const md = buildReviewMarkdown(txs, categoryMap, null, annotations);
+    const md = buildReviewMarkdown(txs, categoryMap, null, reviewMap);
 
     expect(md).toContain("No items were flagged for review.");
     expect(md).not.toContain("## 1.");
   });
 
-  it("treats whitespace-only annotations as empty (not flagged)", () => {
-    const txs = [makeTx()];
-    const categoryMap = new Map<number, string>([[0, "Food"]]);
-    const annotations = new Map<number, string>([[0, "   "]]);
+  it("excludes OK transactions from the report", () => {
+    const txs = [makeTx(), makeTx({ originalDescription: "TX-B" })];
+    const categoryMap = new Map<number, string>([[0, "Food"], [1, "Transport"]]);
+    // Index 0 is OK (not flagged), index 1 is flagged
+    const reviewMap = new Map<number, ReviewStatus>([
+      [0, { status: "ok" }],
+      [1, { status: "flagged", note: "Check this" }],
+    ]);
 
-    const md = buildReviewMarkdown(txs, categoryMap, null, annotations);
+    const md = buildReviewMarkdown(txs, categoryMap, null, reviewMap);
 
-    expect(md).toContain("No items were flagged for review.");
+    expect(md).toContain("TX-B");
+    expect(md).not.toContain("TEST MERCHANT RAW");
+    expect(md).not.toContain("No items were flagged");
   });
 
   it("does not include a Raw API Payload section", () => {
@@ -92,9 +101,11 @@ describe("buildReviewMarkdown", () => {
       [{ index: 0, payee: "Test", notes: "", transactionType: "POS" }],
       [{ index: 0, reasoning: "Looks like food" }],
     );
-    const annotations = new Map<number, string>([[0, "Check this"]]);
+    const reviewMap = new Map<number, ReviewStatus>([
+      [0, { status: "flagged", note: "Check this" }],
+    ]);
 
-    const md = buildReviewMarkdown(txs, categoryMap, debugData, annotations);
+    const md = buildReviewMarkdown(txs, categoryMap, debugData, reviewMap);
 
     expect(md).not.toContain("## Raw API Payload");
     expect(md).not.toContain("full JSON batch");
@@ -107,9 +118,11 @@ describe("buildReviewMarkdown", () => {
       [{ index: 0, payee: "Test", notes: "PayNow ref", transactionType: "POS" }],
       [{ index: 0, reasoning: "Looks like food" }],
     );
-    const annotations = new Map<number, string>([[0, "Needs review"]]);
+    const reviewMap = new Map<number, ReviewStatus>([
+      [0, { status: "flagged", note: "Needs review" }],
+    ]);
 
-    const md = buildReviewMarkdown(txs, categoryMap, debugData, annotations);
+    const md = buildReviewMarkdown(txs, categoryMap, debugData, reviewMap);
 
     const devNotePos = md.indexOf("### Developer Note");
     const detailsPos = md.indexOf("### Details");
@@ -134,9 +147,11 @@ describe("buildReviewMarkdown", () => {
   it("uses markdown table format for metadata fields", () => {
     const txs = [makeTx({ transactionCode: "MST", notes: "some note" })];
     const categoryMap = new Map<number, string>([[0, "Shopping"]]);
-    const annotations = new Map<number, string>([[0, "flagged"]]);
+    const reviewMap = new Map<number, ReviewStatus>([
+      [0, { status: "flagged", note: "flagged" }],
+    ]);
 
-    const md = buildReviewMarkdown(txs, categoryMap, null, annotations);
+    const md = buildReviewMarkdown(txs, categoryMap, null, reviewMap);
 
     expect(md).toContain("| Field | Value |");
     expect(md).toContain("| :--- | :--- |");
@@ -151,9 +166,11 @@ describe("buildReviewMarkdown", () => {
       [{ index: 0, payee: "Test", notes: "", transactionType: "POS" }],
       [{ index: 0, reasoning: "Line one\nLine two" }],
     );
-    const annotations = new Map<number, string>([[0, "check"]]);
+    const reviewMap = new Map<number, ReviewStatus>([
+      [0, { status: "flagged", note: "check" }],
+    ]);
 
-    const md = buildReviewMarkdown(txs, categoryMap, debugData, annotations);
+    const md = buildReviewMarkdown(txs, categoryMap, debugData, reviewMap);
 
     expect(md).toContain("> Line one");
     expect(md).toContain("> Line two");
@@ -166,9 +183,11 @@ describe("buildReviewMarkdown", () => {
       [{ index: 0, payee: "Test", notes: "", transactionType: "POS" }],
       [{ index: 0, reasoning: "reason" }],
     );
-    const annotations = new Map<number, string>([[0, "note"]]);
+    const reviewMap = new Map<number, ReviewStatus>([
+      [0, { status: "flagged", note: "note" }],
+    ]);
 
-    const md = buildReviewMarkdown(txs, categoryMap, debugData, annotations);
+    const md = buildReviewMarkdown(txs, categoryMap, debugData, reviewMap);
 
     // Count ```json occurrences — should be at least 2 (payload + output)
     const jsonBlocks = md.match(/```json/g);

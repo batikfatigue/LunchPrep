@@ -35,8 +35,8 @@ The parser extracts a **payee** and optional **notes** from the raw Ref columns.
 | Sub-type | Payee | Notes |
 |---|---|---|
 | PayNow (outgoing/incoming) | Ref 2: strip `To: ` or `From: ` prefix | Ref 3: strip `OTHR ` prefix; ignore if default `PayNow transfer` |
-| External bank (outgoing) | Ref 1: extract `<BANK>` from `<BANK>:<ACCOUNT>:I-BANK` | Ref 2: user input note (no `OTHR` prefix) |
-| External bank (incoming) | — | `External iBanking Transfer` (refs are unmeaningful) |
+| Outgoing interbank (account transfer) | Ref 1: extract `<BANK>` from `<BANK>:<ACCOUNT>:I-BANK` | Ref 3: extract `<PURPOSE CODE>`, resolve via `fast_purpose_codes.json` (suppress `OTHR`; `INT` → "Intra Company Payment"). Combine with Ref 2 user notes as `"<Purpose Label> \| <notes>"` (suppress default `Transfer` placeholder) |
+| Incoming interbank (account transfer) | — | `External iBanking Transfer` (refs are unmeaningful) |
 
 ### ITR (DBS-to-DBS Transfers)
 

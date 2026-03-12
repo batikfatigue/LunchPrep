@@ -1,20 +1,18 @@
 /**
- * Markdown export utility for the Categorisation Debugger dev tool.
+ * Markdown export utility for the Pipeline Inspector dev tool.
  *
  * Compiles flagged transaction data, Gemini debug payloads, and developer
  * notes into a formatted Markdown string suitable for offline analysis.
+ *
+ * Adapted from src/dev-tools/categorisation-debugger/export.ts to accept
+ * the new ReviewStatus model (flagged-only export, no bare annotation strings).
  *
  * Dev-tool only — never imported outside src/dev-tools/.
  */
 
 import type { RawTransaction } from "@/lib/parsers/types";
 import type { DebugData } from "@/lib/categoriser/client";
-
-/** Shape of a single transaction's annotation state. */
-export interface AnnotationEntry {
-  index: number;
-  comment: string;
-}
+import type { ReviewStatus } from "@/dev-tools/pipeline-inspector/review-controls";
 
 /**
  * Extract the per-transaction API payload from the raw batch payload.
@@ -48,27 +46,27 @@ export function extractTransactionPayload(
 }
 
 /**
- * Compile flagged categorisation debugger data into a Markdown string.
+ * Compile flagged pipeline inspector review data into a Markdown string.
  *
- * Only transactions with a non-empty developer note (annotation) are
- * included. Each entry shows the developer note first, followed by a
- * metadata table, API payload/output code blocks, and AI reasoning.
+ * Only transactions with review status "flagged" are included. Each entry
+ * shows the developer note first, followed by a metadata table, API
+ * payload/output code blocks, and AI reasoning.
  *
- * @param transactions - The full transaction list shown in the review step.
+ * @param transactions - The full transaction list.
  * @param categoryMap  - Map of transaction index → assigned category.
  * @param debugData    - Raw payload and per-transaction reasoning from the API.
- * @param annotations  - User-typed developer notes keyed by transaction index.
+ * @param reviewMap    - Review state keyed by transaction index.
  * @returns Formatted Markdown string for download.
  */
 export function buildReviewMarkdown(
   transactions: RawTransaction[],
   categoryMap: ReadonlyMap<number, string>,
   debugData: DebugData | null,
-  annotations: Map<number, string>,
+  reviewMap: ReadonlyMap<number, ReviewStatus>,
 ): string {
   const now = new Date().toISOString();
   const lines: string[] = [
-    "# LunchPrep — Categorisation Debugger Report",
+    "# LunchPrep — Pipeline Inspector Review Report",
     "",
     `> Generated: ${now}`,
     "",
@@ -76,27 +74,26 @@ export function buildReviewMarkdown(
     "",
   ];
 
-  // Collect flagged indices (transactions with a non-empty developer note)
-  const flaggedIndices = Array.from(annotations.entries())
-    .filter(([, comment]) => comment.trim().length > 0)
-    .map(([index]) => index)
-    .sort((a, b) => a - b);
+  // Collect flagged indices only
+  const flaggedEntries = Array.from(reviewMap.entries())
+    .filter(([, s]) => s.status === "flagged")
+    .sort(([a], [b]) => a - b);
 
-  if (flaggedIndices.length === 0) {
+  if (flaggedEntries.length === 0) {
     lines.push("*No items were flagged for review.*");
     lines.push("");
     return lines.join("\n");
   }
 
   lines.push(
-    `**${flaggedIndices.length}** of ${transactions.length} transactions flagged for review.`,
+    `**${flaggedEntries.length}** of ${transactions.length} transactions flagged for review.`,
   );
   lines.push("");
   lines.push("---");
   lines.push("");
 
   let entryNum = 0;
-  for (const i of flaggedIndices) {
+  for (const [i, reviewStatus] of flaggedEntries) {
     const tx = transactions[i];
     if (!tx) continue;
 
@@ -104,7 +101,7 @@ export function buildReviewMarkdown(
     const category = categoryMap.get(i) ?? "(uncategorised)";
     const reasoning =
       debugData?.perTransaction.find((p) => p.index === i)?.reasoning ?? "";
-    const comment = annotations.get(i) ?? "";
+    const note = reviewStatus.note;
 
     // Format date as DD/MM/YYYY
     const d = tx.date;
@@ -119,7 +116,7 @@ export function buildReviewMarkdown(
     // --- Developer Note (first) ---
     lines.push("### Developer Note");
     lines.push("");
-    lines.push(comment);
+    lines.push(note || "*(no note)*");
     lines.push("");
 
     // --- Metadata table ---
@@ -190,7 +187,7 @@ export function downloadReviewMarkdown(markdown: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `lunchprep-categorisation-debug-${new Date().toISOString().slice(0, 10)}.md`;
+  a.download = `lunchprep-review-${new Date().toISOString().slice(0, 10)}.md`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

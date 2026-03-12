@@ -15,6 +15,7 @@
  * @property transactionCode - Bank transaction code (e.g. "POS", "MST", "ICT", "ITR").
  * @property notes - Contextual info like PayNow OTHR field (stripped of refs and default placeholders).
  * @property originalPII - Map of mock placeholder values back to original PII for later restoration. Empty {} in Phase 1.
+ * @property parseTrace - Dev-only: intermediate parser state for the pipeline inspector. Populated when NEXT_PUBLIC_DEV_TOOLS is active.
  */
 export interface RawTransaction {
   date: Date;
@@ -24,6 +25,10 @@ export interface RawTransaction {
   transactionCode: string;
   notes: string;
   originalPII: Record<string, string>;
+  parseTrace?: {
+    /** Payee value from the per-code cleaner, before stripPII() is applied. */
+    cleanedPayee: string;
+  };
 }
 
 /**
