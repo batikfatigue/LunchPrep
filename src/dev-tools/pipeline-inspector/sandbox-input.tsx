@@ -18,6 +18,7 @@ import { buildCsv } from "@/dev-tools/pipeline-inspector/mock-csv";
 import { dbsParser } from "@/lib/parsers/dbs";
 import { anonymise, restore } from "@/lib/anonymiser/pii";
 import { callCategorise } from "@/lib/categoriser/client";
+import type { DebugData } from "@/lib/categoriser/client";
 import type { PipelineSnapshot, GeminiSentEntry } from "@/lib/pipeline-snapshot";
 
 // ---------------------------------------------------------------------------
@@ -30,6 +31,8 @@ export interface SandboxResult {
   snapshot: PipelineSnapshot;
   /** Gemini-assigned category (only present after Full Pipeline run). */
   category?: string;
+  /** Debug data from callCategorise (only present after Full Pipeline run). */
+  debugData?: DebugData;
 }
 
 export interface SandboxInputProps {
@@ -126,7 +129,7 @@ export default function SandboxInput({
         }));
         snapshot.sent = sentEntries;
 
-        const { results } = await callCategorise(
+        const { results, debug } = await callCategorise(
           anonymised,
           categories,
           apiKey || undefined,
@@ -139,7 +142,7 @@ export default function SandboxInput({
         snapshot.restored = restored;
 
         const category = results[0]?.category;
-        onExecute({ snapshot, category });
+        onExecute({ snapshot, category, debugData: debug });
       } else {
         onExecute({ snapshot });
       }

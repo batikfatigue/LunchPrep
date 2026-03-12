@@ -40,14 +40,9 @@ import type { PipelineSnapshot, GeminiSentEntry } from "@/lib/pipeline-snapshot"
 // Dev-only import: conditionally loaded, dead-code eliminated in production
 // ---------------------------------------------------------------------------
 
-// Reason: Same pattern as _bootstrap.tsx in layout — the ternary is evaluated
-// at build time by Next.js, so the entire import is stripped in production.
-const CategorisationDebuggerDevTool =
-  process.env.NEXT_PUBLIC_DEV_TOOLS === "true"
-    ? dynamic(() => import("@/dev-tools/categorisation-debugger"))
-    : null;
-
 // Dev-tools: pipeline-inspector — gated dynamic import (Pattern B)
+// Reason: The ternary is evaluated at build time by Next.js, so the entire
+// import is stripped in production when NEXT_PUBLIC_DEV_TOOLS is unset.
 const PipelineInspectorDevTool =
   process.env.NEXT_PUBLIC_DEV_TOOLS === "true"
     ? dynamic(() => import("@/dev-tools/pipeline-inspector"))
@@ -355,14 +350,6 @@ export default function Home() {
                 <RefreshCw className="size-4" />
                 Start Over
               </Button>
-              {/* Dev-only: categorisation debugger trigger — tree-shaken in production */}
-              {CategorisationDebuggerDevTool && (
-                <CategorisationDebuggerDevTool
-                  transactions={transactions}
-                  categoryMap={categoryMap}
-                  debugData={debugData}
-                />
-              )}
             </div>
           </div>
 
@@ -386,6 +373,10 @@ export default function Home() {
               selectedIndex={selectedIndex}
               categories={categories}
               apiKey={apiKey}
+              categoryMap={categoryMap}
+              debugData={debugData}
+              transactionCount={transactions.length}
+              onSelectIndex={setSelectedIndex}
             />
           )}
         </div>

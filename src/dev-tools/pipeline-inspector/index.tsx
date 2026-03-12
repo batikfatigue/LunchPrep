@@ -5,17 +5,29 @@
  * pipeline stage (raw → afterClean → afterStripPII → anonymised → sent →
  * categorised → restored).
  *
- * Renders as an inline detail pane below the transaction table. Shows a
- * per-stage diff table for the selected transaction with field-level
- * change markers highlighting what changed at each step.
+ * Renders as an inline detail pane below the transaction table. Composes:
+ * - StageDiffTable: per-stage field diff with change markers
+ * - ApiResultPanel: category, collapsible reasoning, collapsible API payload
+ * - ReviewControls: OK/Flag buttons, note textarea, progress counter, export
  */
 
 import * as React from "react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { PipelineSnapshot, GeminiSentEntry } from "@/lib/pipeline-snapshot";
 import type { RawTransaction } from "@/lib/parsers/types";
+import type { DebugData } from "@/lib/categoriser/client";
 import SandboxInput, { type SandboxResult } from "@/dev-tools/pipeline-inspector/sandbox-input";
+import StageDiffTable, {
+  buildStageRows,
+} from "@/dev-tools/pipeline-inspector/stage-diff-table";
+import ApiResultPanel from "@/dev-tools/pipeline-inspector/api-result-panel";
+import ReviewControls, {
+  type ReviewStatus,
+} from "@/dev-tools/pipeline-inspector/review-controls";
+import { extractTransactionPayload, buildReviewMarkdown, downloadReviewMarkdown } from "@/dev-tools/pipeline-inspector/export";
+
+// Re-export pure helpers for backward compatibility with existing tests.
+export { extractRow, hasChanged, buildStageRows } from "@/dev-tools/pipeline-inspector/stage-diff-table";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -30,148 +42,15 @@ export interface PipelineInspectorProps {
   categories: string[];
   /** Gemini API key for sandbox Full Pipeline mode. */
   apiKey: string;
+  /** Map of transaction index → assigned category (from real categorisation run). */
+  categoryMap: ReadonlyMap<number, string>;
+  /** Debug data from real categorisation run (null if BYOK or not yet run). */
+  debugData: DebugData | null;
+  /** Total transaction count for prev/next navigation bounds. */
+  transactionCount: number;
+  /** Callback to update the selected transaction index from nav buttons. */
+  onSelectIndex: (index: number) => void;
 }
-
-/** Ordered pipeline stage names — includes parse sub-stages derived from the `parsed` snapshot. */
-const STAGE_ORDER = [
-  "raw",
-  "afterClean",
-  "afterStripPII",
-  "anonymised",
-  "sent",
-  "categorised",
-  "restored",
-] as const;
-type StageName = (typeof STAGE_ORDER)[number];
-
-/** Columns shown in the stage diff table. */
-const COLUMNS = ["payee", "notes"] as const;
-/** A normalised row for display — all stages mapped to the same shape. */
-interface StageRow {
-  stage: StageName;
-  payee: string;
-  notes: string;
-}
-
-// ---------------------------------------------------------------------------
-// Pure helpers — exported for unit testing
-// ---------------------------------------------------------------------------
-
-/**
- * Extract column values from a pipeline stage entry for the given transaction index.
- *
- * For parse sub-stages (raw, afterClean, afterStripPII), values are derived
- * from fields on the `RawTransaction` in the `parsed` snapshot entry.
- *
- * @param stage - Pipeline stage name.
- * @param data - Stage data (RawTransaction[] or GeminiSentEntry[]).
- * @param index - Transaction index to extract.
- * @returns Normalised StageRow, or null if the index is out of bounds or data is missing.
- */
-export function extractRow(
-  stage: StageName,
-  data: RawTransaction[] | GeminiSentEntry[],
-  index: number,
-): StageRow | null {
-  if (index < 0 || index >= data.length) return null;
-
-  if (stage === "sent") {
-    const entry = data[index] as GeminiSentEntry;
-    return {
-      stage,
-      payee: entry.payee,
-      notes: entry.notes,
-    };
-  }
-
-  const tx = data[index] as RawTransaction;
-
-  // Reason: Parse sub-stages are derived from fields on the RawTransaction
-  // in the `parsed` snapshot, not from separate snapshot keys.
-  if (stage === "raw") {
-    return {
-      stage,
-      payee: tx.originalDescription,
-      notes: "—",
-    };
-  }
-
-  if (stage === "afterClean") {
-    if (!tx.parseTrace) return null;
-    return {
-      stage,
-      payee: tx.parseTrace.cleanedPayee,
-      notes: tx.notes,
-    };
-  }
-
-  if (stage === "afterStripPII") {
-    return {
-      stage,
-      payee: tx.description,
-      notes: tx.notes,
-    };
-  }
-
-  return {
-    stage,
-    payee: tx.description,
-    notes: tx.notes,
-  };
-}
-
-/**
- * Determine whether a field value differs from the same field in the previous stage.
- *
- * @param current - Current cell value.
- * @param previous - Previous stage cell value (undefined if first stage).
- * @returns True if the field changed, false otherwise. Never true for first stage.
- */
-export function hasChanged(current: string, previous: string | undefined): boolean {
-  if (previous === undefined) return false;
-  return current !== previous;
-}
-
-/**
- * Build the ordered list of stage rows for a given transaction index.
- *
- * Parse sub-stages (raw, afterClean, afterStripPII) are derived from the
- * `parsed` snapshot entry. Other stages use their own snapshot keys.
- *
- * @param snapshots - Pipeline snapshot data.
- * @param index - Transaction index.
- * @returns Array of StageRow objects for present stages, in pipeline order.
- */
-export function buildStageRows(snapshots: PipelineSnapshot, index: number): StageRow[] {
-  const rows: StageRow[] = [];
-
-  for (const stage of STAGE_ORDER) {
-    // Reason: Parse sub-stages derive their data from the `parsed` snapshot,
-    // while other stages have their own keys on PipelineSnapshot.
-    const isParseSub = stage === "raw" || stage === "afterClean" || stage === "afterStripPII";
-    const data = isParseSub ? snapshots.parsed : snapshots[stage];
-    if (!data) continue;
-
-    const row = extractRow(stage, data, index);
-    if (row) rows.push(row);
-  }
-
-  return rows;
-}
-
-// ---------------------------------------------------------------------------
-// Stage label helper
-// ---------------------------------------------------------------------------
-
-const STAGE_LABELS: Record<StageName, string> = {
-  raw: "Raw",
-  afterClean: "After Clean",
-  afterStripPII: "After StripPII",
-  anonymised: "Anonymised",
-  sent: "Sent to Gemini",
-  categorised: "Categorised",
-  restored: "Restored",
-};
 
 // ---------------------------------------------------------------------------
 // Component
@@ -187,21 +66,64 @@ export default function PipelineInspector({
   selectedIndex,
   categories,
   apiKey,
+  categoryMap,
+  debugData,
+  transactionCount,
+  onSelectIndex,
 }: PipelineInspectorProps) {
   // Sandbox state: when populated, overrides the real snapshot for display
   const [sandboxSnapshot, setSandboxSnapshot] = React.useState<PipelineSnapshot | null>(null);
   const [sandboxCategory, setSandboxCategory] = React.useState<string | null>(null);
+  const [sandboxDebugData, setSandboxDebugData] = React.useState<DebugData | null>(null);
+
+  // Review state: ephemeral, cleared on sandbox clear (and should be cleared on snapshot reset)
+  const [reviewMap, setReviewMap] = React.useState<Map<number, ReviewStatus>>(new Map());
+
+  // Reason: Clear review state when the real pipeline snapshots reset (new run).
+  // We detect a reset by watching the snapshots reference — when it becomes empty,
+  // a new categorisation run has started.
+  const prevSnapshotsRef = React.useRef(snapshots);
+  React.useEffect(() => {
+    if (prevSnapshotsRef.current !== snapshots && Object.keys(snapshots).length === 0) {
+      setReviewMap(new Map());
+    }
+    prevSnapshotsRef.current = snapshots;
+  }, [snapshots]);
 
   /** Handle sandbox execution result. */
   function handleSandboxExecute(result: SandboxResult) {
     setSandboxSnapshot(result.snapshot);
     setSandboxCategory(result.category ?? null);
+    setSandboxDebugData(result.debugData ?? null);
   }
 
   /** Clear sandbox data, restoring the real transaction view. */
   function handleSandboxClear() {
     setSandboxSnapshot(null);
     setSandboxCategory(null);
+    setSandboxDebugData(null);
+  }
+
+  /** Update review state for a single transaction. Null = clear (unreviewed). */
+  function handleReviewChange(index: number, status: ReviewStatus | null) {
+    setReviewMap((prev) => {
+      const next = new Map(prev);
+      if (status === null) {
+        next.delete(index);
+      } else {
+        next.set(index, status);
+      }
+      return next;
+    });
+  }
+
+  /** Build and download a Markdown report of all flagged transactions. */
+  function handleExport() {
+    // Reason: We need the parsed transactions for the export, using the
+    // restored stage if available, falling back to parsed.
+    const txs = (snapshots.restored ?? snapshots.parsed ?? []) as RawTransaction[];
+    const md = buildReviewMarkdown(txs, categoryMap, debugData, reviewMap);
+    downloadReviewMarkdown(md);
   }
 
   const isSandboxActive = sandboxSnapshot !== null;
@@ -231,6 +153,95 @@ export default function PipelineInspector({
     label = `#${activeIndex + 1} — ${payeeLabel}`;
   }
 
+  // Whether to show the real-transaction API Result Panel and Review Controls
+  const hasCategory = !isSandboxActive && selectedIndex !== null && categoryMap.has(selectedIndex);
+  const showRealApiPanel = hasCategory;
+  const showReviewControls = hasCategory;
+
+  // Real transaction API panel data
+  const realCategory = selectedIndex !== null ? categoryMap.get(selectedIndex) : undefined;
+  const realReasoning =
+    debugData?.perTransaction.find((p) => p.index === selectedIndex)?.reasoning;
+  const realPayload = selectedIndex !== null
+    ? extractTransactionPayload(debugData?.rawPayload, selectedIndex)
+    : null;
+
+  // Sandbox API panel data (shown when sandbox Full Pipeline ran)
+  const showSandboxApiPanel = isSandboxActive && sandboxCategory !== null;
+  const sandboxReasoning = sandboxDebugData?.perTransaction[0]?.reasoning;
+  const sandboxPayload = extractTransactionPayload(sandboxDebugData?.rawPayload, 0);
+
+  // Prev/Next navigation
+  const canPrev = !isSandboxActive && selectedIndex !== null && selectedIndex > 0;
+  const canNext =
+    !isSandboxActive && selectedIndex !== null && selectedIndex < transactionCount - 1;
+
+  // Ref for the inspector panel — used to receive focus for keyboard shortcuts.
+  const panelRef = React.useRef<HTMLDivElement>(null);
+
+  // Reason: Track the last index set by internal navigation (keyboard A/D shortcuts)
+  // so we can skip scrolling for those — the panel is already in view when the user
+  // is actively navigating within it.
+  const lastInternalIndexRef = React.useRef<number | null>(null);
+
+  // Reason: Scroll the panel into view when an external selection arrives (e.g. the
+  // user clicks a row in the transaction table). Skipped for internal keyboard navigation.
+  React.useEffect(() => {
+    if (
+      selectedIndex !== null &&
+      selectedIndex !== lastInternalIndexRef.current &&
+      !isSandboxActive
+    ) {
+      panelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [selectedIndex, isSandboxActive]);
+
+  /**
+   * Keyboard shortcut handler for the inspector panel.
+   *
+   * Shortcuts (only when not in sandbox mode and a transaction is selected):
+   *   ← / →   Navigate to prev/next transaction
+   *   O        Toggle OK review status
+   *   F        Toggle Flagged review status
+   *
+   * Ignored when focus is inside an input or textarea (e.g. annotation box).
+   */
+  function handlePanelKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    // Reason: Don't hijack keyboard input when the user is typing in a form field.
+    if (
+      e.target instanceof HTMLInputElement ||
+      e.target instanceof HTMLTextAreaElement ||
+      e.target instanceof HTMLSelectElement
+    ) {
+      return;
+    }
+    if (isSandboxActive || selectedIndex === null) return;
+
+    if ((e.key === "ArrowLeft" || e.key === "a" || e.key === "A") && canPrev) {
+      e.preventDefault();
+      lastInternalIndexRef.current = selectedIndex - 1;
+      onSelectIndex(selectedIndex - 1);
+    } else if ((e.key === "ArrowRight" || e.key === "d" || e.key === "D") && canNext) {
+      e.preventDefault();
+      lastInternalIndexRef.current = selectedIndex + 1;
+      onSelectIndex(selectedIndex + 1);
+    } else if (e.key === "o" || e.key === "O") {
+      e.preventDefault();
+      const current = reviewMap.get(selectedIndex);
+      const isOk = current?.status === "ok";
+      const note = current?.note ?? "";
+      // Reason: Toggle off preserves note as neutral when one exists, otherwise removes entry.
+      handleReviewChange(selectedIndex, isOk ? (note ? { status: "neutral", note } : null) : { status: "ok", note });
+    } else if (e.key === "f" || e.key === "F") {
+      e.preventDefault();
+      const current = reviewMap.get(selectedIndex);
+      const isFlagged = current?.status === "flagged";
+      const note = current?.note ?? "";
+      // Reason: Toggle off preserves note as neutral when one exists, otherwise removes entry.
+      handleReviewChange(selectedIndex, isFlagged ? (note ? { status: "neutral", note } : null) : { status: "flagged", note });
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {/* Sandbox input — always rendered above the inspector */}
@@ -240,8 +251,13 @@ export default function PipelineInspector({
         onExecute={handleSandboxExecute}
       />
 
-      {/* Inspector panel */}
-      <div className="rounded-md border">
+      {/* Inspector panel — focusable to enable keyboard shortcuts */}
+      <div
+        ref={panelRef}
+        tabIndex={0}
+        className="rounded-md border focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        onKeyDown={handlePanelKeyDown}
+      >
         {/* Header */}
         <div className="flex items-start justify-between border-b bg-muted/50 px-4 py-2">
           <div>
@@ -250,11 +266,21 @@ export default function PipelineInspector({
             </h3>
             {label && <p className="mt-0.5 text-sm font-medium">{label}</p>}
           </div>
-          {isSandboxActive && (
-            <Button variant="ghost" size="sm" onClick={handleSandboxClear}>
-              Clear
-            </Button>
-          )}
+
+          <div className="flex items-center gap-1">
+            {/* Keyboard hint */}
+            {!isSandboxActive && (
+              <span className="text-[10px] text-muted-foreground/60 select-none">
+                A ‹ prev  ·  D next ›  ·  O ok  ·  F flag
+              </span>
+            )}
+
+            {isSandboxActive && (
+              <Button variant="ghost" size="sm" onClick={handleSandboxClear}>
+                Clear
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Placeholder states */}
@@ -267,71 +293,36 @@ export default function PipelineInspector({
         )}
 
         {/* Stage diff table */}
-        {!showPlaceholder && rows.length > 0 && (
-          <div className="overflow-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  <th className="px-3 py-2">Stage</th>
-                  {COLUMNS.map((col) => (
-                    <th key={col} className="px-3 py-2">
-                      {col}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, rowIdx) => {
-                  const prevRow = rowIdx > 0 ? rows[rowIdx - 1] : undefined;
-                  return (
-                    <tr key={row.stage} className="border-b last:border-0">
-                      <td className="whitespace-nowrap px-3 py-2 text-xs font-medium text-muted-foreground">
-                        {STAGE_LABELS[row.stage]}
-                      </td>
-                      {COLUMNS.map((col) => {
-                        const value = row[col];
-                        const prevValue = prevRow?.[col];
-                        const changed = hasChanged(value, prevValue);
-                        return (
-                          <td
-                            key={col}
-                            className={cn(
-                              "px-3 py-2",
-                              changed && "bg-yellow-100/60 dark:bg-yellow-900/30",
-                              !value && "text-muted-foreground/50",
-                            )}
-                          >
-                            <span className="flex items-center gap-1">
-                              {changed && (
-                                <span
-                                  className="inline-block size-1.5 shrink-0 rounded-full bg-yellow-500"
-                                  title="Changed from previous stage"
-                                />
-                              )}
-                              {value || "—"}
-                            </span>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+        {!showPlaceholder && rows.length > 0 && <StageDiffTable rows={rows} />}
+
+        {/* API Result Panel — real transaction (shown when categoryMap has data) */}
+        {showRealApiPanel && (
+          <ApiResultPanel
+            category={realCategory}
+            reasoning={realReasoning}
+            rawPayload={realPayload}
+          />
         )}
 
-        {/* API Result Panel — shown only for sandbox Full Pipeline runs */}
-        {isSandboxActive && sandboxCategory !== null && (
-          <div className="border-t bg-muted/30 px-4 py-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              API Result
-            </p>
-            <p className="mt-1 text-sm">
-              <span className="text-muted-foreground">Category:</span>{" "}
-              <span className="font-medium">{sandboxCategory}</span>
-            </p>
-          </div>
+        {/* API Result Panel — sandbox Full Pipeline */}
+        {showSandboxApiPanel && (
+          <ApiResultPanel
+            category={sandboxCategory ?? undefined}
+            reasoning={sandboxReasoning}
+            rawPayload={sandboxPayload}
+          />
+        )}
+
+        {/* Review Controls — shown only for real transactions after categorisation */}
+        {showReviewControls && selectedIndex !== null && (
+          <ReviewControls
+            selectedIndex={selectedIndex}
+            reviewMap={reviewMap}
+            totalCount={transactionCount}
+            onReviewChange={handleReviewChange}
+            onExport={handleExport}
+            onExitAnnotation={() => panelRef.current?.focus()}
+          />
         )}
       </div>
     </div>

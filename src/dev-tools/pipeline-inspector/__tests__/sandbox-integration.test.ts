@@ -2,13 +2,16 @@
  * Integration tests for sandbox state management in the pipeline inspector.
  *
  * Verifies that sandbox snapshots override real snapshots, Clear restores
- * the previous state, and the API Result Panel visibility logic.
+ * the previous state, the API Result Panel visibility logic, and that
+ * debug data is passed through in Full Pipeline runs.
  */
 
 import { describe, it, expect } from "vitest";
 import { buildStageRows } from "../index";
+import type { SandboxResult } from "../sandbox-input";
 import type { PipelineSnapshot } from "@/lib/pipeline-snapshot";
 import type { RawTransaction } from "@/lib/parsers/types";
+import type { DebugData } from "@/lib/categoriser/client";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -114,5 +117,46 @@ describe("API Result Panel visibility", () => {
 
     const showPanel = isSandboxActive && sandboxCategory !== null;
     expect(showPanel).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Debug data passthrough in SandboxResult
+// ---------------------------------------------------------------------------
+
+describe("SandboxResult debug data passthrough", () => {
+  it("SandboxResult type includes optional debugData field", () => {
+    // Verify the SandboxResult shape allows debugData
+    const debugData: DebugData = {
+      rawPayload: '{"transactions":[]}',
+      perTransaction: [{ index: 0, reasoning: "Food purchase" }],
+    };
+
+    const result: SandboxResult = {
+      snapshot: { parsed: [] },
+      category: "Dining",
+      debugData,
+    };
+
+    expect(result.debugData).toBeDefined();
+    expect(result.debugData!.perTransaction[0].reasoning).toBe("Food purchase");
+  });
+
+  it("SandboxResult without debugData is valid (Parse + Anonymise mode)", () => {
+    const result: SandboxResult = {
+      snapshot: { parsed: [] },
+    };
+    expect(result.debugData).toBeUndefined();
+    expect(result.category).toBeUndefined();
+  });
+
+  it("SandboxResult with category but no debugData is valid (BYOK Full Pipeline)", () => {
+    const result: SandboxResult = {
+      snapshot: { parsed: [] },
+      category: "Transport",
+      // debugData absent — BYOK mode
+    };
+    expect(result.category).toBe("Transport");
+    expect(result.debugData).toBeUndefined();
   });
 });

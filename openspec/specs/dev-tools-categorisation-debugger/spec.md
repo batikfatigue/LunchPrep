@@ -1,3 +1,10 @@
+> **RETIRED** — The categorisation debugger was deleted as part of the
+> `dev-tools-merge-debugger-into-inspector` change (2026-03-12). All capabilities
+> (category display, reasoning, API payload, annotations, Markdown export) are now
+> provided by the pipeline inspector's API Result Panel and review workflow.
+> See `openspec/specs/pipeline-inspector/spec.md` and
+> `openspec/specs/dev-tools-review-workflow/spec.md`.
+
 ## ADDED Requirements
 
 ### Requirement: Dev-tools directory and environment boundary adherence
