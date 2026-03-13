@@ -25,6 +25,7 @@ import ReviewControls, {
   type ReviewStatus,
 } from "@/dev-tools/pipeline-inspector/review-controls";
 import { extractTransactionPayload, buildReviewMarkdown, downloadReviewMarkdown } from "@/dev-tools/pipeline-inspector/export";
+import FlagSummaryOverlay from "@/dev-tools/pipeline-inspector/flag-summary-overlay";
 
 // Re-export pure helpers for backward compatibility with existing tests.
 export { extractRow, hasChanged, buildStageRows } from "@/dev-tools/pipeline-inspector/stage-diff-table";
@@ -78,6 +79,9 @@ export default function PipelineInspector({
 
   // Review state: ephemeral, cleared on sandbox clear (and should be cleared on snapshot reset)
   const [reviewMap, setReviewMap] = React.useState<Map<number, ReviewStatus>>(new Map());
+
+  // Overlay state
+  const [isSummaryOpen, setIsSummaryOpen] = React.useState(false);
 
   // Reason: Clear review state when the real pipeline snapshots reset (new run).
   // We detect a reset by watching the snapshots reference — when it becomes empty,
@@ -193,6 +197,7 @@ export default function PipelineInspector({
       !isSandboxActive
     ) {
       panelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      panelRef.current?.focus({ preventScroll: true });
     }
   }, [selectedIndex, isSandboxActive]);
 
@@ -215,6 +220,12 @@ export default function PipelineInspector({
     ) {
       return;
     }
+
+    if (e.key === "s" || e.key === "S") {
+      e.preventDefault();
+      setIsSummaryOpen((prev) => !prev);
+    }
+
     if (isSandboxActive || selectedIndex === null) return;
 
     if ((e.key === "ArrowLeft" || e.key === "a" || e.key === "A") && canPrev) {
@@ -271,7 +282,7 @@ export default function PipelineInspector({
             {/* Keyboard hint */}
             {!isSandboxActive && (
               <span className="text-[10px] text-muted-foreground/60 select-none">
-                A ‹ prev  ·  D next ›  ·  O ok  ·  F flag
+                A ‹ prev  ·  D next ›  ·  O ok  ·  F flag  ·  S summary
               </span>
             )}
 
@@ -325,6 +336,15 @@ export default function PipelineInspector({
           />
         )}
       </div>
+
+      {/* Overlays */}
+      <FlagSummaryOverlay
+        isOpen={isSummaryOpen}
+        onClose={() => setIsSummaryOpen(false)}
+        reviewMap={reviewMap}
+        snapshots={snapshots}
+        onSelect={onSelectIndex}
+      />
     </div>
   );
 }

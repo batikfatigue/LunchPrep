@@ -109,10 +109,11 @@ The inspector SHALL support keyboard shortcuts for stepping through transactions
 - `D` or `→` — navigate to the next transaction (calls `onSelectIndex(selectedIndex + 1)`)
 - `O` — toggle OK review status for the selected transaction
 - `F` — toggle Flagged review status for the selected transaction
+- `S` — toggle Flag Summary Overlay visibility
 
 Navigation shortcuts are disabled when `selectedIndex` is null, at the boundary (index 0 for prev, `transactionCount - 1` for next). Shortcuts are suppressed when focus is inside a form input (textarea, input, select) to avoid conflicts with annotation entry.
 
-Navigation updates the selected transaction in the main transaction table (via the `onSelectIndex` callback), keeping the table highlight in sync. A keyboard hint (`A ‹ prev · D next › · O ok · F flag`) is shown in the inspector header when not in sandbox mode. There are no clickable prev/next buttons — keyboard shortcuts are the sole navigation mechanism.
+Navigation updates the selected transaction in the main transaction table (via the `onSelectIndex` callback), keeping the table highlight in sync. A keyboard hint (`A ‹ prev · D next › · O ok · F flag · S summary`) is shown in the inspector header when not in sandbox mode. There are no clickable prev/next buttons — keyboard shortcuts are the sole navigation mechanism.
 
 #### Scenario: Navigate to next transaction
 - **WHEN** the user presses `D` or `→` and `selectedIndex` is less than `transactionCount - 1`
@@ -139,16 +140,43 @@ Navigation updates the selected transaction in the main transaction table (via t
 - **WHEN** focus is inside the annotation textarea
 - **THEN** `A`, `D`, `←`, `→` key events are not intercepted by the inspector
 
-### Requirement: Scroll to inspector on external selection
-When the selected transaction changes due to an external action (e.g. the user clicks a row in the transaction table) and sandbox is not active, the inspector panel SHALL scroll smoothly into view. Scrolling is skipped when the selection change originates from the inspector's own keyboard shortcuts (A/D/←/→), since the panel is already in view during internal navigation.
+### Requirement: Scroll and focus inspector on external selection
+When the selected transaction changes due to an external action (e.g. the user clicks a row in the transaction table) and sandbox is not active, the inspector panel SHALL scroll smoothly into view and receive focus. Scrolling and focus-stealing are skipped when the selection change originates from the inspector's own keyboard shortcuts (A/D/←/→), since the panel is already in view and focused during internal navigation.
 
-#### Scenario: Scroll on external row click
-- **WHEN** the user clicks a transaction row in the main table
+The inspector SHALL NOT scroll into view when the row click originates from interaction with an `EditableCell` (payee or notes inline editing). Specifically:
+- Clicking an `EditableCell` to enter edit mode SHALL NOT trigger scroll.
+- Clicking within an active `EditableCell` input SHALL NOT trigger scroll.
+- Clicking elsewhere on the row to blur (dismiss) an active `EditableCell` SHALL NOT trigger scroll. The edit is committed, the input is dismissed, but the inspector remains in its current scroll position.
+- A subsequent deliberate click on the same row, when no `EditableCell` is in edit mode, SHALL trigger the normal scroll-into-view and focus behaviour.
+
+#### Scenario: Scroll and focus on external row click
+- **WHEN** the user clicks a transaction row in the main table (not on an EditableCell)
 - **THEN** the inspector panel scrolls smoothly into view
+- **THEN** the inspector panel receives focus to enable immediate keyboard shortcuts
 
-#### Scenario: No scroll on internal keyboard navigation
+#### Scenario: No scroll or focus-steal on internal keyboard navigation
 - **WHEN** the user presses A/D/←/→ to navigate within the inspector
-- **THEN** the inspector panel does not scroll (it is already in view)
+- **THEN** the inspector panel does not scroll or trigger an unnecessary focus call (it is already in view and focused)
+
+#### Scenario: No scroll when clicking EditableCell to edit
+- **WHEN** the user clicks on a payee or notes EditableCell to enter edit mode
+- **THEN** the EditableCell enters edit mode (shows input)
+- **THEN** the inspector does NOT scroll into view
+
+#### Scenario: No scroll when clicking inside active EditableCell input
+- **WHEN** the user clicks within an already-active EditableCell input
+- **THEN** the input retains focus for continued editing
+- **THEN** the inspector does NOT scroll into view
+
+#### Scenario: No scroll when dismissing EditableCell by clicking row
+- **WHEN** the user clicks elsewhere on the transaction row to blur an active EditableCell
+- **THEN** the EditableCell commits the edit and exits edit mode
+- **THEN** the inspector does NOT scroll into view
+
+#### Scenario: Scroll resumes after editing is fully dismissed
+- **WHEN** no EditableCell is in edit mode
+- **WHEN** the user clicks the transaction row
+- **THEN** the inspector scrolls smoothly into view and receives focus
 
 ### Requirement: API Result Panel for real transactions
 The inspector SHALL render an API Result Panel below the stage diff table when a real transaction is selected and categorisation data is available. The panel SHALL display:
@@ -188,13 +216,15 @@ The pipeline inspector is decomposed into sub-component files to stay within the
 - `api-result-panel.tsx` — Category, collapsible reasoning, collapsible API payload
 - `review-controls.tsx` — OK/Flag buttons, note textarea, progress counter, export button
 - `export.ts` — Markdown export functions adapted from the debugger
-- `sandbox-input.tsx` — Sandbox input form
-- `mock-csv.ts` — Mock CSV builder
+    - `sandbox-input.tsx` — Sandbox input form
+    - `mock-csv.ts` — Mock CSV builder
 
-#### Scenario: No single file exceeds 500 lines
-- **WHEN** the merge is complete
-- **THEN** every file in `src/dev-tools/pipeline-inspector/` is under 500 lines
+### Requirement: Flag Summary Overlay
+The Pipeline Inspector SHALL provide a "Flag Summary Overlay" providing a consolidated view of all transactions marked with "flagged" status.
 
-#### Scenario: Pure helpers remain testable
-- **WHEN** `extractRow`, `hasChanged`, and `buildStageRows` are moved to `stage-diff-table.tsx`
-- **THEN** they remain exported and testable via existing unit tests
+The Flag Summary Overlay SHALL:
+- Be toggled via the `S` keyboard shortcut.
+- Take up approximately 90% of the viewport width and 80% of the viewport height.
+- Feature a dimmed, blurred backdrop (backdrop-blur-sm) to isolate it from the background.
+- Display a table with columns: **Index** (1-indexed #index), **Raw Description** (`originalDescription`), and **Flag Note**.
+- Support interactive navigation: clicking a row SHALL close the overlay, update the `selectedIndex` to that transaction, and trigger the standard scroll/focus behavior.

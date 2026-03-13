@@ -161,7 +161,7 @@ export default function ReviewControls({
           className={cn(
             "h-7 px-3 text-xs",
             isFlagged &&
-              "bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-500",
+            "bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-500",
           )}
           onClick={handleFlag}
         >

@@ -166,6 +166,8 @@ interface EditableCellProps {
   value: string;
   placeholder?: string;
   onCommit: (value: string) => void;
+  /** Called when the input blurs (edit ends), before any follow-up row click fires. */
+  onEditEnd?: () => void;
   className?: string;
 }
 
@@ -173,7 +175,7 @@ interface EditableCellProps {
  * A table cell that switches to an input on click.
  * Commits on blur or Enter; cancels on Escape.
  */
-function EditableCell({ value, placeholder = "—", onCommit, className }: EditableCellProps) {
+function EditableCell({ value, placeholder = "—", onCommit, onEditEnd, className }: EditableCellProps) {
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState(value);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -210,7 +212,14 @@ function EditableCell({ value, placeholder = "—", onCommit, className }: Edita
         type="text"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
+        // Reason: stop propagation so clicks inside the active input do not bubble to <tr onClick>.
+        onClick={(e) => e.stopPropagation()}
+        onBlur={() => {
+          commit();
+          // Reason: notify the row that an edit just ended so it can suppress the
+          // follow-up click that caused this blur (blur fires before click).
+          onEditEnd?.();
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter") commit();
           if (e.key === "Escape") cancel();
@@ -228,7 +237,11 @@ function EditableCell({ value, placeholder = "—", onCommit, className }: Edita
     <span
       role="button"
       tabIndex={0}
-      onClick={startEdit}
+      onClick={(e) => {
+        // Reason: stop propagation so clicking to enter edit mode does not bubble to <tr onClick>.
+        e.stopPropagation();
+        startEdit();
+      }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") startEdit();
       }}
@@ -497,6 +510,18 @@ function TransactionRow({
 }: TransactionRowProps) {
   const isDebit = transaction.amount < 0;
 
+  // Reason: When the user clicks elsewhere on the row to blur an active EditableCell,
+  // the browser fires blur before click. This one-frame refractory flag lets us detect
+  // that "blur-caused click" and skip onRowSelect, preventing an unwanted inspector scroll.
+  const editJustEndedRef = React.useRef(false);
+
+  function handleEditEnd() {
+    editJustEndedRef.current = true;
+    setTimeout(() => {
+      editJustEndedRef.current = false;
+    }, 0);
+  }
+
   return (
     <tr
       className={cn(
@@ -504,7 +529,10 @@ function TransactionRow({
         isSelected && "bg-accent/40 ring-1 ring-inset ring-ring/20",
         onRowSelect && "cursor-pointer",
       )}
-      onClick={() => onRowSelect?.(index)}
+      onClick={() => {
+        if (editJustEndedRef.current) return;
+        onRowSelect?.(index);
+      }}
     >
       {/* Number */}
       <td className="px-3 py-2 text-center text-xs text-muted-foreground/70 tabular-nums">
@@ -522,6 +550,7 @@ function TransactionRow({
           <EditableCell
             value={transaction.description}
             onCommit={(val) => onPayeeChange(index, val)}
+            onEditEnd={handleEditEnd}
           />
         ) : (
           transaction.description
@@ -588,6 +617,7 @@ function TransactionRow({
             value={transaction.notes}
             placeholder="—"
             onCommit={(val) => onNotesChange(index, val)}
+            onEditEnd={handleEditEnd}
             className="text-muted-foreground"
           />
         ) : (
