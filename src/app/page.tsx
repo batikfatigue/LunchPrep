@@ -11,7 +11,7 @@
 
 import * as React from "react";
 import dynamic from "next/dynamic";
-import { RefreshCw, Download, Sparkles } from "lucide-react";
+import { RefreshCw, Download, Sparkles, FileText } from "lucide-react";
 
 import { LandingHero } from "@/components/landing-hero";
 import { PipelineSteps, type PipelineStep } from "@/components/pipeline-steps";
@@ -27,6 +27,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 import { useLocalStorage } from "@/hooks/use-local-storage";
+import { useSessionPersistence } from "@/hooks/use-session-persistence";
 
 import { detectAndParse } from "@/lib/parsers/registry";
 import { anonymise, restore } from "@/lib/anonymiser/pii";
@@ -83,10 +84,24 @@ export default function Home() {
   // Dev-mode only: debug data from the categorisation API (reasoning + raw payload).
   // Stays null in production since the API never returns debug data there.
   const [debugData, setDebugData] = React.useState<DebugData | null>(null);
+  // Original CSV filename — captured on upload, used in session metadata.
+  const [csvFilename, setCsvFilename] = React.useState<string>("");
   // Dev-tools: pipeline-inspector — snapshot of transaction state at each pipeline stage
   const [snapshots, setSnapshots] = React.useState<PipelineSnapshot>({});
   // Dev-tools: pipeline-inspector — index of the selected transaction row
   const [selectedIndex, setSelectedIndex] = React.useState<number | null>(null);
+
+  // ---------------------------------------------------------------------------
+  // Session persistence
+  // ---------------------------------------------------------------------------
+
+  // Reason: Only pass state to the hook when catStatus is "done" so we never
+  // persist a partial or loading state. The hook handles the debounce internally.
+  const { savedSession, restore: restoreSession, discard } = useSessionPersistence(
+    catStatus === "done"
+      ? { filename: csvFilename, transactions, categoryMap, catStatus }
+      : null,
+  );
 
   // ---------------------------------------------------------------------------
   // Handlers
@@ -100,6 +115,8 @@ export default function Home() {
    */
   async function handleFileSelect(file: File) {
     setParseError(null);
+    // Reason: Capture filename for session metadata before parsing starts.
+    setCsvFilename(file.name);
     try {
       const text = await file.text();
       const txs = detectAndParse(text);
@@ -180,6 +197,8 @@ export default function Home() {
   function handleExport() {
     const csv = generateLunchMoneyCsv(transactions, categoryMap);
     downloadCsv(csv);
+    // Reason: Clear session on export — workflow is complete, no need to resume.
+    discard();
     setStep("export");
   }
 
@@ -192,8 +211,11 @@ export default function Home() {
     setCatStatus("idle");
     setParseError(null);
     setDebugData(null);
+    setCsvFilename("");
     setSnapshots({}); // Dev-tools: pipeline-inspector
     setSelectedIndex(null); // Dev-tools: pipeline-inspector
+    // Reason: Clear session on reset — user is starting over.
+    discard();
     setStep("upload");
   }
 
@@ -253,9 +275,40 @@ export default function Home() {
     setApiKey(key);
   }
 
+  /**
+   * Resume a saved session: hydrate state and jump to the review step.
+   */
+  function handleResume() {
+    const restored = restoreSession();
+    if (!restored) return;
+    if (savedSession) setCsvFilename(savedSession.meta.filename);
+    setTransactions(restored.transactions);
+    setCategoryMap(restored.categoryMap);
+    setCatStatus("done");
+    setStep("review");
+  }
+
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
+
+  /**
+   * Format a saved-at ISO string as a human-readable relative time.
+   * e.g. "2 hours ago", "just now", "3 days ago"
+   *
+   * @param savedAt - ISO 8601 timestamp string.
+   * @returns Human-readable relative time string.
+   */
+  function formatRelativeTime(savedAt: string): string {
+    const diffMs = Date.now() - new Date(savedAt).getTime();
+    const diffMins = Math.floor(diffMs / 60_000);
+    if (diffMins < 1) return "just now";
+    if (diffMins < 60) return `${diffMins} minute${diffMins === 1 ? "" : "s"} ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+  }
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
@@ -278,6 +331,29 @@ export default function Home() {
       {/* ----------------------------------------------------------------- */}
       {step === "upload" && (
         <>
+          {/* Resume banner — shown when a saved session exists in localStorage */}
+          {savedSession && (
+            <div className="mb-4 flex items-center gap-3 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-800 dark:bg-blue-950/40">
+              <FileText className="size-4 shrink-0 text-blue-600 dark:text-blue-400" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                  Resume unfinished review
+                </p>
+                <p className="mt-0.5 truncate text-xs text-blue-700 dark:text-blue-300">
+                  {savedSession.meta.filename} &middot; {savedSession.meta.txnCount} transaction{savedSession.meta.txnCount !== 1 ? "s" : ""} &middot; {formatRelativeTime(savedSession.meta.savedAt)}
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <Button size="sm" onClick={handleResume}>
+                  Resume
+                </Button>
+                <Button size="sm" variant="ghost" onClick={discard}>
+                  Discard
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Explainer hero — shown only on the initial upload step */}
           <LandingHero />
 
