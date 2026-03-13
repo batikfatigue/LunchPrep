@@ -34,9 +34,7 @@ function makeTx(overrides?: Partial<RawTransaction>): RawTransaction {
 const SNAPSHOT: PipelineSnapshot = { parsed: [makeTx()] };
 
 /**
- * Renders PipelineInspector and returns the focusable panel div + onSelectIndex spy.
- *
- * @param overrides - Optional prop overrides for the rendered component.
+ * Renders PipelineInspector and returns tools for testing.
  */
 function setup({
   selectedIndex = 1,
@@ -48,21 +46,25 @@ function setup({
   categoryMap?: ReadonlyMap<number, string>;
 } = {}) {
   const onSelectIndex = vi.fn();
-  const { container } = render(
-    <PipelineInspector
-      snapshots={SNAPSHOT}
-      selectedIndex={selectedIndex}
-      categories={[]}
-      apiKey=""
-      categoryMap={categoryMap}
-      debugData={null}
-      transactionCount={transactionCount}
-      onSelectIndex={onSelectIndex}
-    />,
-  );
-  // Reason: The panel div carries tabIndex=0 to receive keyboard focus.
-  const panel = container.querySelector('[tabindex="0"]') as HTMLElement;
-  return { panel, onSelectIndex };
+  const props = {
+    snapshots: SNAPSHOT,
+    selectedIndex,
+    categories: [],
+    apiKey: "",
+    categoryMap,
+    debugData: null,
+    transactionCount,
+    onSelectIndex,
+  };
+
+  const result = render(<PipelineInspector {...props} />);
+  const panel = result.container.querySelector('[tabindex="0"]') as HTMLElement;
+
+  const rerenderWithIndex = (newIndex: number | null) => {
+    result.rerender(<PipelineInspector {...props} selectedIndex={newIndex} />);
+  };
+
+  return { ...result, panel, onSelectIndex, rerenderWithIndex };
 }
 
 // ---------------------------------------------------------------------------
@@ -195,5 +197,66 @@ describe("keyboard review shortcuts — O / F", () => {
     // Progress counter should now show 1 reviewed, 1 flagged
     screen.getByText("1/5 reviewed");
     screen.getByText("1 flagged");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Subset navigation — Q / W (unreviewed) and Shift+Q / Shift+W (flagged)
+// ---------------------------------------------------------------------------
+
+describe("keyboard navigation — subset cycling", () => {
+  it("W key jumps to the next unreviewed transaction", () => {
+    // 0 is unreviewed, 1 is ok, 2 is unreviewed. From 0, W should jump to 2.
+    const { panel, onSelectIndex, rerenderWithIndex } = setup({
+      selectedIndex: 0,
+      categoryMap: new Map([[1, "Food"]]),
+      transactionCount: 5,
+    });
+
+    // 1. Mark index 1 as OK
+    rerenderWithIndex(1);
+    fireEvent.keyDown(panel, { key: "o" });
+
+    // 2. Move back to 0
+    rerenderWithIndex(0);
+
+    // 3. Press 'w' (find next unreviewed after 0)
+    // Results should be 2 because 1 is reviewed.
+    fireEvent.keyDown(panel, { key: "w" });
+    expect(onSelectIndex).toHaveBeenCalledWith(2);
+  });
+
+  it("Shift+W key jumps to the next flagged transaction", () => {
+    // Index 3 is flagged. From 0, Shift+W should jump to 3.
+    const { panel, onSelectIndex, rerenderWithIndex } = setup({
+      selectedIndex: 0,
+      categoryMap: new Map([[3, "Food"]]),
+      transactionCount: 5,
+    });
+
+    // 1. Mark index 3 as flagged
+    rerenderWithIndex(3);
+    fireEvent.keyDown(panel, { key: "f" });
+
+    // 2. Back to 0
+    rerenderWithIndex(0);
+
+    // 3. Press 'Shift+W'
+    fireEvent.keyDown(panel, { key: "W", shiftKey: true });
+    expect(onSelectIndex).toHaveBeenCalledWith(3);
+  });
+
+  it("Q/W/Shift+Q/Shift+W are suppressed inside form inputs", () => {
+    const { onSelectIndex } = setup({
+      selectedIndex: 0,
+      categoryMap: new Map([[0, "Food"]]),
+      transactionCount: 5,
+    });
+    const textarea = screen.getByPlaceholderText(/Add a note/);
+    fireEvent.keyDown(textarea, { key: "q" });
+    fireEvent.keyDown(textarea, { key: "w" });
+    fireEvent.keyDown(textarea, { key: "Q", shiftKey: true });
+    fireEvent.keyDown(textarea, { key: "W", shiftKey: true });
+    expect(onSelectIndex).not.toHaveBeenCalled();
   });
 });

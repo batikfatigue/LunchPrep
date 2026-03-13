@@ -110,10 +110,14 @@ The inspector SHALL support keyboard shortcuts for stepping through transactions
 - `O` — toggle OK review status for the selected transaction
 - `F` — toggle Flagged review status for the selected transaction
 - `S` — toggle Flag Summary Overlay visibility
+- `W` — jump to the next unreviewed transaction (wrapping)
+- `Q` — jump to the previous unreviewed transaction (wrapping)
+- `Shift+W` — jump to the next flagged transaction (wrapping)
+- `Shift+Q` — jump to the previous flagged transaction (wrapping)
 
 Navigation shortcuts are disabled when `selectedIndex` is null, at the boundary (index 0 for prev, `transactionCount - 1` for next). Shortcuts are suppressed when focus is inside a form input (textarea, input, select) to avoid conflicts with annotation entry.
 
-Navigation updates the selected transaction in the main transaction table (via the `onSelectIndex` callback), keeping the table highlight in sync. A keyboard hint (`A ‹ prev · D next › · O ok · F flag · S summary`) is shown in the inspector header when not in sandbox mode. There are no clickable prev/next buttons — keyboard shortcuts are the sole navigation mechanism.
+Navigation updates the selected transaction in the main transaction table (via the `onSelectIndex` callback), keeping the table highlight in sync. A keyboard hint (`Q ‹ unrev · W unrev › · ⇧Q ‹ flag · ⇧W flag › · A ‹ prev · D next › · O ok · F flag · S summary`) is shown in the inspector header when not in sandbox mode. There are no clickable prev/next buttons — keyboard shortcuts are the sole navigation mechanism.
 
 #### Scenario: Navigate to next transaction
 - **WHEN** the user presses `D` or `→` and `selectedIndex` is less than `transactionCount - 1`
@@ -139,6 +143,22 @@ Navigation updates the selected transaction in the main transaction table (via t
 #### Scenario: Shortcuts suppressed in textarea
 - **WHEN** focus is inside the annotation textarea
 - **THEN** `A`, `D`, `←`, `→` key events are not intercepted by the inspector
+
+#### Scenario: Jump to next unreviewed
+- **WHEN** the user presses `W` and unreviewed transactions exist
+- **THEN** `onSelectIndex` is called with the index of the next unreviewed transaction (wrapping)
+
+#### Scenario: Jump to previous unreviewed
+- **WHEN** the user presses `Q` and unreviewed transactions exist
+- **THEN** `onSelectIndex` is called with the index of the previous unreviewed transaction (wrapping)
+
+#### Scenario: Jump to next flagged
+- **WHEN** the user presses `Shift+W` and flagged transactions exist
+- **THEN** `onSelectIndex` is called with the index of the next flagged transaction (wrapping)
+
+#### Scenario: Jump to previous flagged
+- **WHEN** the user presses `Shift+Q` and flagged transactions exist
+- **THEN** `onSelectIndex` is called with the index of the previous flagged transaction (wrapping)
 
 ### Requirement: Scroll and focus inspector on external selection
 When the selected transaction changes due to an external action (e.g. the user clicks a row in the transaction table) and sandbox is not active, the inspector panel SHALL scroll smoothly into view and receive focus. Scrolling and focus-stealing are skipped when the selection change originates from the inspector's own keyboard shortcuts (A/D/←/→), since the panel is already in view and focused during internal navigation.

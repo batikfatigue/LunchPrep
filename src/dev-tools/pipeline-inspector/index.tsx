@@ -17,6 +17,7 @@ import type { PipelineSnapshot, GeminiSentEntry } from "@/lib/pipeline-snapshot"
 import type { RawTransaction } from "@/lib/parsers/types";
 import type { DebugData } from "@/lib/categoriser/client";
 import SandboxInput, { type SandboxResult } from "@/dev-tools/pipeline-inspector/sandbox-input";
+import JumpInput from "@/dev-tools/pipeline-inspector/jump-input";
 import StageDiffTable, {
   buildStageRows,
 } from "@/dev-tools/pipeline-inspector/stage-diff-table";
@@ -26,6 +27,12 @@ import ReviewControls, {
 } from "@/dev-tools/pipeline-inspector/review-controls";
 import { extractTransactionPayload, buildReviewMarkdown, downloadReviewMarkdown } from "@/dev-tools/pipeline-inspector/export";
 import FlagSummaryOverlay from "@/dev-tools/pipeline-inspector/flag-summary-overlay";
+import {
+  findNextUnreviewed,
+  findPrevUnreviewed,
+  findNextFlagged,
+  findPrevFlagged,
+} from "@/dev-tools/pipeline-inspector/navigation-helpers";
 
 // Re-export pure helpers for backward compatibility with existing tests.
 export { extractRow, hasChanged, buildStageRows } from "@/dev-tools/pipeline-inspector/stage-diff-table";
@@ -250,6 +257,24 @@ export default function PipelineInspector({
       const note = current?.note ?? "";
       // Reason: Toggle off preserves note as neutral when one exists, otherwise removes entry.
       handleReviewChange(selectedIndex, isFlagged ? (note ? { status: "neutral", note } : null) : { status: "flagged", note });
+    } else if (e.key === "w" || e.key === "W") {
+      e.preventDefault();
+      const nextIndex = e.shiftKey
+        ? findNextFlagged(selectedIndex, transactionCount, reviewMap)
+        : findNextUnreviewed(selectedIndex, transactionCount, reviewMap);
+      if (nextIndex !== null) {
+        lastInternalIndexRef.current = nextIndex;
+        onSelectIndex(nextIndex);
+      }
+    } else if (e.key === "q" || e.key === "Q") {
+      e.preventDefault();
+      const prevIndex = e.shiftKey
+        ? findPrevFlagged(selectedIndex, transactionCount, reviewMap)
+        : findPrevUnreviewed(selectedIndex, transactionCount, reviewMap);
+      if (prevIndex !== null) {
+        lastInternalIndexRef.current = prevIndex;
+        onSelectIndex(prevIndex);
+      }
     }
   }
 
@@ -275,14 +300,22 @@ export default function PipelineInspector({
             <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Pipeline Inspector
             </h3>
-            {label && <p className="mt-0.5 text-sm font-medium">{label}</p>}
+            <div className="mt-0.5 flex items-center gap-2">
+              {label && <p className="text-sm font-medium">{label}</p>}
+              <JumpInput
+                selectedIndex={selectedIndex}
+                transactionCount={transactionCount}
+                isSandboxActive={isSandboxActive}
+                onJump={onSelectIndex}
+              />
+            </div>
           </div>
 
           <div className="flex items-center gap-1">
             {/* Keyboard hint */}
             {!isSandboxActive && (
               <span className="text-[10px] text-muted-foreground/60 select-none">
-                A ‹ prev  ·  D next ›  ·  O ok  ·  F flag  ·  S summary
+                Q ‹ unrev · W unrev › · ⇧Q ‹ flag · ⇧W flag › · A ‹ prev · D next › · O ok · F flag · S summary
               </span>
             )}
 
