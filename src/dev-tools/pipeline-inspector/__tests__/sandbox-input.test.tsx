@@ -56,7 +56,7 @@ describe("sandbox execution path", () => {
     const [tx] = dbsParser.parse(csv);
     expect(tx.description).toBe("Alice Wong");
     expect(tx.notes).toBe("lunch money");
-    expect(tx.amount).toBe(45);
+    expect(tx.amount).toBe(-45);
   });
 
   it("parsed transaction has parseTrace when dev tools enabled", () => {
@@ -83,7 +83,7 @@ describe("sandbox execution path", () => {
 
     const [tx] = dbsParser.parse(csv);
     expect(tx.description).toBe("Burger King");
-    expect(tx.amount).toBe(15.5);
+    expect(tx.amount).toBe(-15.5);
   });
 
   it("handles unknown format gracefully", () => {

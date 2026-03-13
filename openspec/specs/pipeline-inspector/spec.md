@@ -200,26 +200,28 @@ The inspector SHALL NOT scroll into view when the row click originates from inte
 
 ### Requirement: API Result Panel for real transactions
 The inspector SHALL render an API Result Panel below the stage diff table when a real transaction is selected and categorisation data is available. The panel SHALL display:
-- **Category**: From `categoryMap.get(selectedIndex)`
+- **Category**: From `apiCategoryMap.get(selectedIndex)`
 - **Reasoning** (collapsible, expanded by default): From `debugData.perTransaction` for the selected index
 - **API Payload** (collapsible, expanded by default): Extracted from `debugData.rawPayload` for the selected index, with the internal `index` field removed
 
 The panel SHALL NOT be rendered when:
 - No transaction is selected
-- `categoryMap` does not contain the selected index (categorisation has not run)
+- `apiCategoryMap` does not contain the selected index (categorisation has not run)
 - Sandbox data is active (sandbox has its own API Result Panel behavior)
 
+> **Note:** `apiCategoryMap` is an immutable snapshot of the AI-assigned categories captured at categorisation time. It is distinct from the mutable `categoryMap` used by the review table and CSV export, ensuring the API Result Panel always reflects the original AI output regardless of user edits.
+
 #### Scenario: Full API Result Panel with debug data
-- **WHEN** a real transaction is selected and `categoryMap` and `debugData` are available
+- **WHEN** a real transaction is selected and `apiCategoryMap` and `debugData` are available
 - **THEN** the panel shows category, and collapsible reasoning and API payload sections
 
 #### Scenario: API Result Panel without debug data (BYOK mode)
-- **WHEN** a real transaction is selected and `categoryMap` is available but `debugData` is null
+- **WHEN** a real transaction is selected and `apiCategoryMap` is available but `debugData` is null
 - **THEN** the panel shows the category
 - **THEN** reasoning and API payload sections indicate "Not available (BYOK mode)"
 
 #### Scenario: Panel hidden before categorisation
-- **WHEN** `categoryMap` is empty (categorisation has not run)
+- **WHEN** `apiCategoryMap` is empty (categorisation has not run)
 - **THEN** no API Result Panel is rendered
 
 #### Scenario: Panel hidden when sandbox active

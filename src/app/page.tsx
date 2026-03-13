@@ -79,6 +79,9 @@ export default function Home() {
   const [categoryMap, setCategoryMap] = React.useState<Map<number, string>>(
     new Map(),
   );
+  // Dev-tools: pipeline-inspector — immutable snapshot of AI-assigned categories at categorisation time.
+  // Reason: Keeps the API Result Panel showing the original AI output even after user edits categoryMap.
+  const [apiCategoryMap, setApiCategoryMap] = React.useState<ReadonlyMap<number, string>>(new Map());
   const [catStatus, setCatStatus] = React.useState<CategorisationStatus>("idle");
   const [parseError, setParseError] = React.useState<string | null>(null);
   // Dev-mode only: debug data from the categorisation API (reasoning + raw payload).
@@ -122,6 +125,7 @@ export default function Home() {
       const txs = detectAndParse(text);
       setTransactions(txs);
       setCategoryMap(new Map());
+      setApiCategoryMap(new Map());
       setStep("review");
       // Auto-trigger categorisation immediately after parse.
       void triggerCategorise(txs);
@@ -183,6 +187,7 @@ export default function Home() {
         map.set(r.index, r.category);
       }
       setCategoryMap(map);
+      setApiCategoryMap(new Map(map)); // immutable snapshot of the original AI result
       setCatStatus("done");
     } catch {
       // Reason: Keep status as "error" so the error banner is shown.
@@ -208,6 +213,7 @@ export default function Home() {
   function handleReset() {
     setTransactions([]);
     setCategoryMap(new Map());
+    setApiCategoryMap(new Map());
     setCatStatus("idle");
     setParseError(null);
     setDebugData(null);
@@ -284,6 +290,7 @@ export default function Home() {
     if (savedSession) setCsvFilename(savedSession.meta.filename);
     setTransactions(restored.transactions);
     setCategoryMap(restored.categoryMap);
+    setApiCategoryMap(new Map(restored.categoryMap)); // snapshot at resume time (no user edits yet)
     setCatStatus("done");
     setStep("review");
   }
@@ -453,7 +460,7 @@ export default function Home() {
               selectedIndex={selectedIndex}
               categories={categories}
               apiKey={apiKey}
-              categoryMap={categoryMap}
+              categoryMap={apiCategoryMap}
               debugData={debugData}
               transactionCount={transactions.length}
               onSelectIndex={setSelectedIndex}
