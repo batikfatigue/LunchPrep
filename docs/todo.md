@@ -7,6 +7,7 @@
 - [x] UI/UX redesign — app shell with numbered step pills + settings dialog, upload hero with flow diagram/format select/privacy + AI mode cards, review table with filter chips/search/selection/sorting/pagination, export summary screen
 - [x] OpenAI-compatible API provider support — `AI_PROVIDER`/`OPENAI_*` env vars for the server proxy and a provider picker (key + base URL + model) for BYOK
 - [x] OpenAI-compatible hardening — tolerant JSON parsing (fences/prose/content parts), `/chat/completions` URL normalisation, HTTP 400 retry without `response_format`, real provider error surfaced in the review banner, proxy/BYOK radio actually controls routing
+- [x] BYOK relay fallback — when an OpenAI-compatible endpoint can't be reached from the browser (no CORS headers), the call is relayed through `/api/categorise` via a `byok` body field that overrides server env config
 
 ## Discovered During Work
 

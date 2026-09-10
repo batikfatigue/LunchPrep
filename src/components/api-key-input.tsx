@@ -275,7 +275,7 @@ export function ApiKeyInput({ settings, onSettingsChange }: ApiKeyInputProps) {
       <p className="text-xs text-muted-foreground">
         {isActive
           ? isOpenAI
-            ? "Your key is stored locally and sent directly to your OpenAI-compatible endpoint — bypassing the server proxy."
+            ? "Your key is stored locally and sent directly to your OpenAI-compatible endpoint — relayed through the server proxy only if the endpoint blocks browser requests."
             : "Your key is stored locally and sent directly to Gemini — bypassing the server proxy."
           : "Optional. Leave blank to use the shared server proxy."}
       </p>

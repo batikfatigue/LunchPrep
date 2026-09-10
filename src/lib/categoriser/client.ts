@@ -13,7 +13,10 @@
 
 import { buildPrompt, SYSTEM_INSTRUCTION } from "@/lib/categoriser/prompt";
 import { DEFAULT_CATEGORIES } from "@/lib/categoriser/categories";
-import { callOpenAIChat } from "@/lib/categoriser/openai";
+import {
+  callOpenAIChat,
+  OpenAIEndpointUnreachableError,
+} from "@/lib/categoriser/openai";
 import type { RawTransaction } from "@/lib/parsers/types";
 
 /** Supported AI providers for categorisation. */
@@ -68,6 +71,17 @@ interface ProxyRequestBody {
     transactionType: string;
   }>;
   categories: string[];
+  /**
+   * BYOK credentials relayed to the server when the provider endpoint cannot
+   * be reached directly from the browser (e.g. no CORS headers). When absent,
+   * the proxy uses its own server-side env vars.
+   */
+  byok?: {
+    provider: AiProvider;
+    apiKey: string;
+    baseUrl?: string;
+    model?: string;
+  };
 }
 
 /** Shape of the JSON response from /api/categorise. */
@@ -268,8 +282,23 @@ export async function callCategorise(
   const config = byok === undefined ? getBYOKConfig() : byok;
 
   if (config?.provider === "openai") {
-    const results = await callOpenAIDirect(transactions, categories, config);
-    return { results };
+    try {
+      const results = await callOpenAIDirect(transactions, categories, config);
+      return { results };
+    } catch (err) {
+      console.error("[callCategorise] OpenAI-compatible error:", err);
+      if (err instanceof OpenAIEndpointUnreachableError) {
+        // Reason: Endpoints without CORS headers (e.g. campus/self-hosted
+        // gateways) can never answer a browser fetch. Relay through
+        // /api/categorise — the server has no CORS constraint — carrying the
+        // stored credentials so the user doesn't need server env vars.
+        return callProxy(transactions, categories, config);
+      }
+      // Reason: Preserve the underlying message (HTTP status, unparseable
+      // output) so the review banner can show why the endpoint failed — a
+      // generic SERVER_ERROR leaves the user unable to diagnose it.
+      throw err instanceof Error ? err : new Error("SERVER_ERROR");
+    }
   }
 
   if (config) {
@@ -297,11 +326,14 @@ export async function callCategorise(
  *
  * @param transactions - Anonymised transactions.
  * @param categories - Category list.
+ * @param byok - Optional BYOK credentials relayed to the server (used when a
+ *   direct browser call to an OpenAI-compatible endpoint was unreachable).
  * @returns Categorisation results, plus optional debug data in dev mode.
  */
 async function callProxy(
   transactions: RawTransaction[],
   categories: string[],
+  byok?: BYOKConfig,
 ): Promise<CategoriseResponse> {
   const body: ProxyRequestBody = {
     transactions: transactions.map((tx, i) => ({
@@ -312,6 +344,14 @@ async function callProxy(
     })),
     categories,
   };
+  if (byok) {
+    body.byok = {
+      provider: byok.provider,
+      apiKey: byok.apiKey,
+      baseUrl: byok.baseUrl,
+      model: byok.model,
+    };
+  }
 
   const res = await fetch("/api/categorise", {
     method: "POST",
@@ -404,6 +444,8 @@ async function callGeminiDirect(
  * @param categories - Category list.
  * @param config - OpenAI-compatible connection details (key, baseUrl, model).
  * @returns Categorisation results from the endpoint.
+ * @throws OpenAIEndpointUnreachableError when fetch never gets a response
+ *   (CORS/mixed content/unreachable host) — the caller relays via the proxy.
  */
 async function callOpenAIDirect(
   transactions: RawTransaction[],
@@ -412,16 +454,8 @@ async function callOpenAIDirect(
 ): Promise<CategorisationResult[]> {
   const prompt = buildPrompt(transactions, categories);
 
-  try {
-    const items = await callOpenAIChat(SYSTEM_INSTRUCTION, prompt, config);
-    // Reason: The API contract exposes only { index, category }; any extra
-    // fields a provider returns (e.g. reasoning) are dropped here.
-    return items.map(({ index, category }) => ({ index, category }));
-  } catch (err) {
-    console.error("[callOpenAIDirect] OpenAI-compatible error:", err);
-    // Reason: Preserve the underlying message (HTTP status, unreachable host,
-    // unparseable output) so the review banner can show why the endpoint
-    // failed — a generic SERVER_ERROR leaves the user unable to diagnose it.
-    throw err instanceof Error ? err : new Error("SERVER_ERROR");
-  }
+  const items = await callOpenAIChat(SYSTEM_INSTRUCTION, prompt, config);
+  // Reason: The API contract exposes only { index, category }; any extra
+  // fields a provider returns (e.g. reasoning) are dropped here.
+  return items.map(({ index, category }) => ({ index, category }));
 }

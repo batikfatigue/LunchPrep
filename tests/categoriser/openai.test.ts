@@ -10,6 +10,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   callOpenAIChat,
   parseCategorisationContent,
+  OpenAIEndpointUnreachableError,
   DEFAULT_OPENAI_BASE_URL,
   DEFAULT_OPENAI_MODEL,
 } from "@/lib/categoriser/openai";
@@ -177,6 +178,12 @@ describe("callOpenAIChat", () => {
         baseUrl: "http://localhost:11434/v1",
       }),
     ).rejects.toThrow("http://localhost:11434/v1/chat/completions");
+    await expect(
+      callOpenAIChat(SYSTEM_INSTRUCTION, PROMPT, {
+        apiKey: "k",
+        baseUrl: "http://localhost:11434/v1",
+      }),
+    ).rejects.toBeInstanceOf(OpenAIEndpointUnreachableError);
   });
 
   it("throws on non-OK HTTP responses", async () => {

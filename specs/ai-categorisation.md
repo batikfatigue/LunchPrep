@@ -3,7 +3,7 @@
 The categorisation backend is provider-agnostic. Two providers are supported, selected via the `AI_PROVIDER` environment variable (server proxy) or the BYOK provider picker (client):
 
 - **Gemini** (default) — `gemini-2.5-flash-lite` via `@google/generative-ai`, structured `responseSchema` output.
-- **OpenAI-compatible** — any endpoint implementing `POST {baseUrl}/chat/completions` (OpenAI, Azure OpenAI, OpenRouter, Ollama, LM Studio, vLLM, …). Plain `fetch` is used — no vendor SDK. Requests use `temperature: 0`, the same system instruction and JSON user payload as Gemini, and `response_format: { type: "json_object" }`. If the endpoint rejects the request with HTTP 400 (e.g. it does not support `response_format`), the call is retried once without `response_format`. A base URL pasted with a trailing `/chat/completions` is normalised. Responses are parsed tolerantly: the result array may be bare, wrapped in an object property, enclosed in a markdown code fence, or surrounded by prose; `message.content` may also be an array of typed text parts. Provider error details (HTTP status, unreachable host, unparseable output) are surfaced in the review error banner.
+- **OpenAI-compatible** — any endpoint implementing `POST {baseUrl}/chat/completions` (OpenAI, Azure OpenAI, OpenRouter, Ollama, LM Studio, vLLM, …). Plain `fetch` is used — no vendor SDK. Requests use `temperature: 0`, the same system instruction and JSON user payload as Gemini, and `response_format: { type: "json_object" }`. If the endpoint rejects the request with HTTP 400 (e.g. it does not support `response_format`), the call is retried once without `response_format`. A base URL pasted with a trailing `/chat/completions` is normalised. Responses are parsed tolerantly: the result array may be bare, wrapped in an object property, enclosed in a markdown code fence, or surrounded by prose; `message.content` may also be an array of typed text parts. Provider error details (HTTP status, unreachable host, unparseable output) are surfaced in the review error banner. If the endpoint cannot be reached from the browser at all (no CORS headers, mixed-content block), the client transparently relays the request through `/api/categorise` carrying the stored credentials in a `byok` body field — the server has no CORS constraint.
 
 ## Name Anonymisation (Privacy)
 Personal names are replaced with mock data before leaving the browser, while **merchant names are preserved** so the AI can categorise accurately.
@@ -23,9 +23,12 @@ Personal names are replaced with mock data before leaving the browser, while **m
     { "index": 1, "payee": "John Tan", "notes": "san lor horfun", "transactionType": "Inward Transfer" }
   ],
   "categories": ["Groceries", "Dining", "Transport", "Shopping", "Entertainment",
-                  "Utilities", "Healthcare", "Education", "Personal", "Transfers", "Income", "Other"]
+                  "Utilities", "Healthcare", "Education", "Personal", "Transfers", "Income", "Other"],
+  "byok": { "provider": "openai", "apiKey": "sk-…", "baseUrl": "https://…", "model": "…" }  // optional relay
 }
 ```
+
+`byok` is optional: present only when the client relays a BYOK call that the browser could not make directly (CORS/mixed content). When present it overrides the server env configuration entirely (provider, key, base URL, model).
 
 **Response (200)**
 ```json
