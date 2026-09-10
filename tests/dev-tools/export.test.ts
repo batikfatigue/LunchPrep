@@ -83,7 +83,7 @@ describe("buildReviewMarkdown", () => {
     const categoryMap = new Map<number, string>([[0, "Food"], [1, "Transport"]]);
     // Index 0 is OK (not flagged), index 1 is flagged
     const reviewMap = new Map<number, ReviewStatus>([
-      [0, { status: "ok" }],
+      [0, { status: "ok", note: "" }],
       [1, { status: "flagged", note: "Check this" }],
     ]);
 

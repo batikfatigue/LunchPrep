@@ -87,7 +87,7 @@ export default function FlagSummaryOverlay({
                     {flaggedItems.length === 0 ? (
                         <div className="flex h-full flex-col items-center justify-center gap-2 p-12 text-muted-foreground">
                             <p>No transactions have been flagged yet.</p>
-                            <p className="text-xs">Press 'F' while inspecting a transaction to flag it.</p>
+                            <p className="text-xs">Press &apos;F&apos; while inspecting a transaction to flag it.</p>
                         </div>
                     ) : (
                         <table className="w-full border-collapse text-left text-sm">

@@ -3,13 +3,13 @@
 /**
  * Pipeline step indicator component.
  *
- * Renders a horizontal step indicator showing the three stages of the
- * LunchPrep wizard: Upload → Review → Export. The current step is
- * highlighted; completed steps show a checkmark.
+ * Renders the three wizard stages as numbered pills in the app header:
+ * Upload → Review → Export. The active step is filled and labelled in the
+ * foreground colour; completed steps show a checkmark; upcoming steps are muted.
  */
 
 import * as React from "react";
-import { Upload, FileSearch, Download, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -28,16 +28,10 @@ export interface PipelineStepsProps {
 // Step definitions
 // ---------------------------------------------------------------------------
 
-interface StepDef {
-  id: PipelineStep;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-}
-
-const STEPS: StepDef[] = [
-  { id: "upload", label: "Upload", icon: Upload },
-  { id: "review", label: "Review", icon: FileSearch },
-  { id: "export", label: "Export", icon: Download },
+const STEPS: Array<{ id: PipelineStep; label: string }> = [
+  { id: "upload", label: "Upload" },
+  { id: "review", label: "Review" },
+  { id: "export", label: "Export" },
 ];
 
 const STEP_ORDER: PipelineStep[] = ["upload", "review", "export"];
@@ -47,7 +41,7 @@ const STEP_ORDER: PipelineStep[] = ["upload", "review", "export"];
 // ---------------------------------------------------------------------------
 
 /**
- * Horizontal step indicator for the wizard pipeline.
+ * Numbered step pills for the wizard pipeline.
  *
  * @param props - See PipelineStepsProps.
  */
@@ -55,64 +49,34 @@ export function PipelineSteps({ currentStep }: PipelineStepsProps) {
   const currentIndex = STEP_ORDER.indexOf(currentStep);
 
   return (
-    <nav
-      aria-label="Progress"
-      className="mb-8"
-    >
-      <ol className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-0">
+    <nav aria-label="Progress">
+      <ol className="flex items-center gap-1">
         {STEPS.map((step, index) => {
           const isCompleted = index < currentIndex;
           const isCurrent = index === currentIndex;
-          const Icon = step.icon;
 
           return (
-            <React.Fragment key={step.id}>
-              <li className="flex items-center gap-3">
-                {/* Step circle / icon */}
-                <div
-                  aria-current={isCurrent ? "step" : undefined}
-                  className={cn(
-                    "flex size-9 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-                    isCompleted &&
-                      "border-primary bg-primary text-primary-foreground",
-                    isCurrent &&
-                      "border-primary bg-background text-primary",
-                    !isCompleted &&
-                      !isCurrent &&
-                      "border-muted-foreground/30 bg-background text-muted-foreground/50",
-                  )}
-                >
-                  {isCompleted ? (
-                    <Check className="size-4" aria-hidden />
-                  ) : (
-                    <Icon className="size-4" aria-hidden />
-                  )}
-                </div>
-
-                {/* Step label */}
+            <li key={step.id}>
+              <div
+                aria-current={isCurrent ? "step" : undefined}
+                className={cn(
+                  "flex items-center gap-2 rounded-full px-2.5 py-1 text-sm transition-colors sm:px-3",
+                  isCurrent && "bg-primary/10 font-medium text-foreground",
+                  !isCurrent && "text-muted-foreground",
+                )}
+              >
                 <span
                   className={cn(
-                    "text-sm font-medium",
-                    isCurrent && "text-foreground",
-                    isCompleted && "text-muted-foreground",
-                    !isCompleted && !isCurrent && "text-muted-foreground/50",
+                    "flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold",
+                    (isCurrent || isCompleted) && "bg-primary text-primary-foreground",
+                    !isCurrent && !isCompleted && "bg-muted text-muted-foreground",
                   )}
                 >
-                  {step.label}
+                  {isCompleted ? <Check className="size-3" aria-hidden /> : index + 1}
                 </span>
-              </li>
-
-              {/* Connector line between steps */}
-              {index < STEPS.length - 1 && (
-                <div
-                  aria-hidden
-                  className={cn(
-                    "hidden h-px flex-1 sm:mx-4 sm:block",
-                    index < currentIndex ? "bg-primary" : "bg-muted-foreground/20",
-                  )}
-                />
-              )}
-            </React.Fragment>
+                <span className="hidden sm:inline">{step.label}</span>
+              </div>
+            </li>
           );
         })}
       </ol>
