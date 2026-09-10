@@ -32,7 +32,7 @@ You can also use **Bring Your Own Key (BYOK)** mode: pick a provider in the app 
 ### How it works
 
 1. **Upload** — Export your DBS statement CSV from internet banking and drop it in.
-2. **Review** — AI categorises every transaction. Edit payees, notes, or categories inline.
+2. **Review** — AI categorises every transaction. Filter, search and sort the table, then edit payees, notes, or categories inline.
 3. **Export** — Download a Lunch Money-compatible CSV and import it in one click.
 
 ---

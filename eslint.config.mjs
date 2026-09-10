@@ -24,8 +24,9 @@ const eslintConfig = defineConfig([
       "src/lib/**/*.{ts,tsx}",
       "src/hooks/**/*.{ts,tsx}",
     ],
-    // Exclude the root layout — it is the sole allowed integration point.
-    ignores: ["src/app/layout.tsx"],
+    // Exclude the root layout (the sole allowed integration point) and test
+    // files, which may import dev-tools fixtures.
+    ignores: ["src/app/layout.tsx", "src/**/__tests__/**"],
     rules: {
       "no-restricted-imports": [
         "error",

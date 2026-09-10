@@ -137,7 +137,7 @@ export function FileUpload({ onFileSelect, isLoading = false, error }: FileUploa
           }
         }}
         className={cn(
-          "flex min-h-48 cursor-pointer flex-col items-center justify-center gap-4",
+          "flex min-h-44 cursor-pointer flex-col items-center justify-center gap-3",
           "rounded-xl border-2 border-dashed p-8 text-center transition-colors",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           isDragOver && "border-primary bg-primary/5",
@@ -165,17 +165,19 @@ export function FileUpload({ onFileSelect, isLoading = false, error }: FileUploa
           </>
         ) : (
           <>
-            <Upload className="size-10 text-muted-foreground" />
+            <Upload className="size-8 text-muted-foreground" />
             <div>
-              <p className="font-medium">Drop your CSV here</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                or click to browse — accepts .csv files only
+              <p className="font-medium">Drop your DBS CSV file here</p>
+              <p className="mt-1 text-sm text-muted-foreground">or click to browse</p>
+              <p className="mt-3 text-xs text-muted-foreground/70">
+                Supports DBS iBanking CSV exports
               </p>
             </div>
             <Button
               type="button"
               variant="outline"
               size="sm"
+              className="sr-only focus:not-sr-only"
               onClick={(e) => {
                 // Reason: Stop propagation prevents the outer div's onClick
                 // from firing again when the button is clicked.

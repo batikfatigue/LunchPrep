@@ -1,51 +1,45 @@
 "use client";
 
 /**
- * LandingHero — Privacy-first hero section displayed above the upload UI.
+ * LandingHero — headline and pipeline diagram shown at the top of the upload step.
  *
- * Explains the tool's purpose, privacy model, and 3-step usage instructions.
- * Rendered on the Upload step before users interact with the file input.
- * Uses shadcn/ui Card components and Tailwind CSS only (no inline styles).
+ * Communicates the whole product in one glance: a DBS statement goes in,
+ * LunchPrep categorises it in the browser, and a Lunch Money-ready file
+ * comes out.
  */
 
-import { Shield, Upload, Sparkles, Download } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import * as React from "react";
+import { ArrowRight, FileText, Leaf } from "lucide-react";
 
 // ---------------------------------------------------------------------------
-// Sub-component types
+// Sub-component
 // ---------------------------------------------------------------------------
 
-interface StepCardProps {
-  /** Step number label (e.g. "1. Upload"). */
+interface FlowNodeProps {
+  /** Icon rendered in the node's tile. */
+  icon: React.ReactNode;
+  /** Node title, e.g. "LunchPrep". */
   label: string;
-  /** Lucide icon component to render inside the icon circle. */
-  icon: React.ComponentType<{ className?: string }>;
-  /** Short description of what happens in this step. */
-  description: string;
+  /** One-line description under the title. */
+  caption: string;
 }
 
-// ---------------------------------------------------------------------------
-// Internal sub-component
-// ---------------------------------------------------------------------------
-
 /**
- * A single "how it works" step card with icon, label, and description.
+ * A single node of the DBS → LunchPrep → Lunch Money diagram.
  *
- * @param props - See StepCardProps.
+ * @param props - See FlowNodeProps.
  */
-function StepCard({ label, icon: Icon, description }: StepCardProps) {
+function FlowNode({ icon, label, caption }: FlowNodeProps) {
   return (
-    <Card>
-      <CardContent className="pt-2 text-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="inline-flex size-10 items-center justify-center rounded-full bg-primary/10">
-            <Icon className="size-5 text-primary" aria-hidden />
-          </div>
-          <p className="font-semibold">{label}</p>
-          <p className="text-sm text-muted-foreground">{description}</p>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="flex w-28 flex-col items-center gap-2 text-center">
+      <div className="flex size-12 items-center justify-center rounded-xl bg-muted/60">
+        {icon}
+      </div>
+      <div>
+        <p className="text-sm font-semibold">{label}</p>
+        <p className="text-xs text-muted-foreground">{caption}</p>
+      </div>
+    </div>
   );
 }
 
@@ -54,75 +48,50 @@ function StepCard({ label, icon: Icon, description }: StepCardProps) {
 // ---------------------------------------------------------------------------
 
 /**
- * Privacy-first landing hero rendered above the file upload UI.
- *
- * Provides new users with an at-a-glance understanding of:
- * - What LunchPrep does (DBS CSV → Lunch Money import)
- * - The privacy-first model (all processing in browser, PII anonymised)
- * - The 3-step workflow (Upload → Review → Export)
+ * Upload-step hero with headline, sub-headline and the three-node flow diagram.
  *
  * @returns Hero section as a React element.
  */
 export function LandingHero() {
   return (
-    <section aria-label="About LunchPrep" className="mb-8 space-y-6">
-      {/* Tagline */}
-      <div className="space-y-2 text-center">
-        <h2 className="text-3xl font-bold tracking-tight">
-          DBS → Lunch Money, in under 2 minutes.
-        </h2>
-        <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-          Upload your DBS bank statement CSV. LunchPrep uses Gemini AI to
-          categorise every transaction, then exports a file ready to import
-          directly into{" "}
-          <a
-            href="https://lunchmoney.app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline underline-offset-4 hover:text-foreground"
-          >
-            Lunch Money
-          </a>
-          .
+    <section aria-label="About LunchPrep" className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
+          Prepare your DBS statements
+          <br className="hidden sm:block" /> for Lunch Money
+        </h1>
+        <p className="mt-2 text-muted-foreground">
+          Parse, categorise and export — all in your browser.
         </p>
       </div>
 
-      {/* Privacy First callout */}
-      <div className="flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-900 dark:bg-green-950/30">
-        <Shield
-          className="mt-0.5 size-5 shrink-0 text-green-600 dark:text-green-400"
+      <div className="flex flex-wrap items-start gap-2 sm:gap-4">
+        <FlowNode
+          icon={
+            <span className="flex size-8 items-center justify-center rounded-md bg-red-600 text-xs font-bold text-white">
+              DBS
+            </span>
+          }
+          label="DBS"
+          caption="CSV statement"
+        />
+        <ArrowRight
+          className="mt-4 size-4 shrink-0 text-muted-foreground"
           aria-hidden
         />
-        <div>
-          <p className="font-semibold text-green-800 dark:text-green-300">
-            Privacy First — your data never leaves your browser.
-          </p>
-          <p className="mt-1 text-sm text-green-700 dark:text-green-400">
-            CSV parsing and all financial data processing happens entirely
-            client-side. Before any AI call, real names and account numbers are
-            replaced with realistic placeholders — your original data is
-            restored locally before export. You can also bring your own Gemini
-            API key (BYOK) to bypass the shared proxy entirely.
-          </p>
-        </div>
-      </div>
-
-      {/* 3-step how it works */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StepCard
-          label="1. Upload"
-          icon={Upload}
-          description="Export your DBS statement as a CSV from internet banking and drop it here."
+        <FlowNode
+          icon={<FileText className="size-6 text-primary" aria-hidden />}
+          label="LunchPrep"
+          caption="AI categorisation"
         />
-        <StepCard
-          label="2. Review"
-          icon={Sparkles}
-          description="Gemini AI categorises every transaction. Edit payees, notes, or categories inline."
+        <ArrowRight
+          className="mt-4 size-4 shrink-0 text-muted-foreground"
+          aria-hidden
         />
-        <StepCard
-          label="3. Export"
-          icon={Download}
-          description="Download a Lunch Money-compatible CSV and import it in one click."
+        <FlowNode
+          icon={<Leaf className="size-6 text-emerald-600" aria-hidden />}
+          label="Lunch Money"
+          caption="Ready to import"
         />
       </div>
     </section>

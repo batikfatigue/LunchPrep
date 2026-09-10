@@ -4,30 +4,26 @@
  * LunchPrep main page — Upload → Review → Export wizard.
  *
  * Orchestrates the full pipeline:
- * 1. Upload step: file drag-and-drop, API key input, category editor.
+ * 1. Upload step: file drag-and-drop, CSV format, privacy note, AI mode.
  * 2. Review step: transaction table with AI-generated categories and inline editing.
- * 3. Export step: success state with download link and start-over button.
+ * 3. Export step: summary, pre-export checklist and CSV download.
  */
 
 import * as React from "react";
 import dynamic from "next/dynamic";
-import { RefreshCw, Download, Sparkles, FileText } from "lucide-react";
+import { ArrowRight, FileText, RefreshCw, Sparkles } from "lucide-react";
 
-import { LandingHero } from "@/components/landing-hero";
-import { PipelineSteps, type PipelineStep } from "@/components/pipeline-steps";
-import { FileUpload } from "@/components/file-upload";
-import {
-  ApiKeyInput,
-  type AiProviderSettings,
-} from "@/components/api-key-input";
-import { CategoryEditor } from "@/components/category-editor";
+import { AppShell } from "@/components/app-shell";
+import { ExportStep } from "@/components/export/export-step";
+import { UploadStep } from "@/components/upload/upload-step";
+import { type PipelineStep } from "@/components/pipeline-steps";
+import type { AiProviderSettings } from "@/components/api-key-input";
 import {
   TransactionTable,
+  computeSummary,
   type CategorisationStatus,
 } from "@/components/transaction-table";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ThemeToggle } from "@/components/theme-toggle";
 
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useSessionPersistence } from "@/hooks/use-session-persistence";
@@ -42,6 +38,7 @@ import type {
 } from "@/lib/categoriser/client";
 import { DEFAULT_CATEGORIES } from "@/lib/categoriser/categories";
 import { generateLunchMoneyCsv, downloadCsv } from "@/lib/exporter/lunchmoney";
+import { countByStatus } from "@/lib/review/status";
 import type { RawTransaction } from "@/lib/parsers/types";
 import type { PipelineSnapshot, GeminiSentEntry } from "@/lib/pipeline-snapshot"; // Dev-tools: pipeline-inspector
 
@@ -101,6 +98,8 @@ export default function Home() {
   // ---------------------------------------------------------------------------
 
   const [step, setStep] = React.useState<PipelineStep>("upload");
+  const [pendingFile, setPendingFile] = React.useState<File | null>(null);
+  const [isParsing, setIsParsing] = React.useState(false);
   const [transactions, setTransactions] = React.useState<RawTransaction[]>([]);
   const [categoryMap, setCategoryMap] = React.useState<Map<number, string>>(
     new Map(),
@@ -115,6 +114,8 @@ export default function Home() {
   const [debugData, setDebugData] = React.useState<DebugData | null>(null);
   // Original CSV filename — captured on upload, used in session metadata.
   const [csvFilename, setCsvFilename] = React.useState<string>("");
+  // Whether the Lunch Money CSV has been downloaded in this session.
+  const [downloaded, setDownloaded] = React.useState(false);
   // Dev-tools: pipeline-inspector — snapshot of transaction state at each pipeline stage
   const [snapshots, setSnapshots] = React.useState<PipelineSnapshot>({});
   // Dev-tools: pipeline-inspector — index of the selected transaction row
@@ -141,6 +142,15 @@ export default function Home() {
         ? { provider: "gemini", apiKey: geminiKey }
         : null;
 
+  /** Current provider settings object passed to AppShell / UploadStep. */
+  const aiSettings: AiProviderSettings = {
+    provider,
+    geminiKey,
+    openaiKey,
+    openaiBaseUrl,
+    openaiModel,
+  };
+
   // ---------------------------------------------------------------------------
   // Session persistence
   // ---------------------------------------------------------------------------
@@ -158,17 +168,25 @@ export default function Home() {
   // ---------------------------------------------------------------------------
 
   /**
-   * Parse a CSV file and transition to the review step.
-   * Automatically triggers AI categorisation after parsing.
+   * Remember the chosen CSV. Parsing is deferred until the user continues.
    *
    * @param file - The CSV File selected by the user.
    */
-  async function handleFileSelect(file: File) {
+  function handleFileSelect(file: File) {
     setParseError(null);
-    // Reason: Capture filename for session metadata before parsing starts.
+    setPendingFile(file);
     setCsvFilename(file.name);
+  }
+
+  /**
+   * Parse the pending CSV, move to the review step and kick off categorisation.
+   */
+  async function handleContinueToReview() {
+    if (!pendingFile) return;
+    setParseError(null);
+    setIsParsing(true);
     try {
-      const text = await file.text();
+      const text = await pendingFile.text();
       const txs = detectAndParse(text);
       setTransactions(txs);
       setCategoryMap(new Map());
@@ -180,6 +198,8 @@ export default function Home() {
       const message =
         err instanceof Error ? err.message : "Failed to parse the file.";
       setParseError(message);
+    } finally {
+      setIsParsing(false);
     }
   }
 
@@ -244,14 +264,14 @@ export default function Home() {
   }
 
   /**
-   * Generate and download the Lunch Money CSV, then advance to the export step.
+   * Generate and download the Lunch Money CSV.
    */
-  function handleExport() {
+  function handleDownload() {
     const csv = generateLunchMoneyCsv(transactions, categoryMap);
     downloadCsv(csv);
+    setDownloaded(true);
     // Reason: Clear session on export — workflow is complete, no need to resume.
     discard();
-    setStep("export");
   }
 
   /**
@@ -265,6 +285,8 @@ export default function Home() {
     setParseError(null);
     setDebugData(null);
     setCsvFilename("");
+    setPendingFile(null);
+    setDownloaded(false);
     setSnapshots({}); // Dev-tools: pipeline-inspector
     setSelectedIndex(null); // Dev-tools: pipeline-inspector
     // Reason: Clear session on reset — user is starting over.
@@ -348,58 +370,43 @@ export default function Home() {
   }
 
   // ---------------------------------------------------------------------------
-  // Render
+  // Derived state
   // ---------------------------------------------------------------------------
 
-  /**
-   * Format a saved-at ISO string as a human-readable relative time.
-   * e.g. "2 hours ago", "just now", "3 days ago"
-   *
-   * @param savedAt - ISO 8601 timestamp string.
-   * @returns Human-readable relative time string.
-   */
-  function formatRelativeTime(savedAt: string): string {
-    const diffMs = Date.now() - new Date(savedAt).getTime();
-    const diffMins = Math.floor(diffMs / 60_000);
-    if (diffMins < 1) return "just now";
-    if (diffMins < 60) return `${diffMins} minute${diffMins === 1 ? "" : "s"} ago`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
-    const diffDays = Math.floor(diffHours / 24);
-    return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
-  }
+  const statusCounts = countByStatus(transactions, categoryMap, categories);
+  const summary = computeSummary(transactions);
+
+  // Reason: Date.now() is not allowed during render, so the clock used for the
+  // resume banner's relative time is captured once the page has mounted.
+  const [now, setNow] = React.useState<number | null>(null);
+  React.useEffect(() => {
+    setNow(Date.now());
+  }, [savedSession]);
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
-      {/* Header */}
-      <header className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">LunchPrep</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Convert Singapore bank CSVs into Lunch Money imports with AI categorisation.
-          </p>
-        </div>
-        <ThemeToggle />
-      </header>
-
-      {/* Pipeline step indicator */}
-      <PipelineSteps currentStep={step} />
-
+    <AppShell
+      currentStep={step}
+      aiSettings={aiSettings}
+      onAiSettingsChange={handleAiSettingsChange}
+      categories={categories}
+      onCategoriesChange={handleCategoriesChange}
+    >
       {/* ----------------------------------------------------------------- */}
       {/* Step: Upload                                                        */}
       {/* ----------------------------------------------------------------- */}
       {step === "upload" && (
-        <>
+        <div className="flex flex-col gap-6">
           {/* Resume banner — shown when a saved session exists in localStorage */}
           {savedSession && (
-            <div className="mb-4 flex items-center gap-3 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-800 dark:bg-blue-950/40">
-              <FileText className="size-4 shrink-0 text-blue-600 dark:text-blue-400" />
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 dark:border-sky-900 dark:bg-sky-950/40">
+              <FileText className="size-4 shrink-0 text-sky-600 dark:text-sky-400" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                <p className="text-sm font-medium text-sky-900 dark:text-sky-100">
                   Resume unfinished review
                 </p>
-                <p className="mt-0.5 truncate text-xs text-blue-700 dark:text-blue-300">
-                  {savedSession.meta.filename} &middot; {savedSession.meta.txnCount} transaction{savedSession.meta.txnCount !== 1 ? "s" : ""} &middot; {formatRelativeTime(savedSession.meta.savedAt)}
+                <p className="mt-0.5 truncate text-xs text-sky-700 dark:text-sky-300">
+                  {savedSession.meta.filename} &middot; {savedSession.meta.txnCount} transaction{savedSession.meta.txnCount !== 1 ? "s" : ""}
+                  {now !== null && ` · ${formatRelativeTime(savedSession.meta.savedAt, now)}`}
                 </p>
               </div>
               <div className="flex shrink-0 gap-2">
@@ -413,52 +420,16 @@ export default function Home() {
             </div>
           )}
 
-          {/* Explainer hero — shown only on the initial upload step */}
-          <LandingHero />
-
-          <div className="grid gap-6 lg:grid-cols-3">
-            {/* Upload zone — spans 2 columns on large screens */}
-            <div className="lg:col-span-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Upload your bank CSV</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <FileUpload
-                    onFileSelect={handleFileSelect}
-                    error={parseError}
-                  />
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Settings sidebar */}
-            <div className="flex flex-col gap-4">
-              <Card>
-                <CardContent className="pt-6">
-                  <ApiKeyInput
-                    settings={{
-                      provider,
-                      geminiKey,
-                      openaiKey,
-                      openaiBaseUrl,
-                      openaiModel,
-                    }}
-                    onSettingsChange={handleAiSettingsChange}
-                  />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <CategoryEditor
-                    categories={categories}
-                    onCategoriesChange={handleCategoriesChange}
-                  />
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </>
+          <UploadStep
+            onFileSelect={handleFileSelect}
+            hasFile={pendingFile !== null}
+            isLoading={isParsing}
+            error={parseError}
+            onContinue={handleContinueToReview}
+            aiSettings={aiSettings}
+            onAiSettingsChange={handleAiSettingsChange}
+          />
+        </div>
       )}
 
       {/* ----------------------------------------------------------------- */}
@@ -466,39 +437,6 @@ export default function Home() {
       {/* ----------------------------------------------------------------- */}
       {step === "review" && (
         <div className="flex flex-col gap-4">
-          {/* Action bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">
-              {transactions.length} transaction
-              {transactions.length !== 1 ? "s" : ""} loaded. Review and edit
-              before exporting.
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => triggerCategorise()}
-                disabled={catStatus === "loading"}
-              >
-                <Sparkles className="size-4" />
-                {catStatus === "loading" ? "Categorising…" : "Re-categorise"}
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleExport}
-                disabled={catStatus === "loading"}
-              >
-                <Download className="size-4" />
-                Export CSV
-              </Button>
-              <Button variant="ghost" size="sm" onClick={handleReset}>
-                <RefreshCw className="size-4" />
-                Start Over
-              </Button>
-            </div>
-          </div>
-
-          {/* Transaction table */}
           <TransactionTable
             transactions={transactions}
             categories={categories}
@@ -524,6 +462,33 @@ export default function Home() {
               onSelectIndex={setSelectedIndex}
             />
           )}
+
+          {/* Step actions */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Button variant="ghost" size="sm" onClick={handleReset}>
+              <RefreshCw className="size-4" />
+              Start Over
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => triggerCategorise()}
+                disabled={catStatus === "loading"}
+              >
+                <Sparkles className="size-4" />
+                {catStatus === "loading" ? "Categorising…" : "Re-categorise"}
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setStep("export")}
+                disabled={catStatus === "loading" || transactions.length === 0}
+              >
+                Continue to Export
+                <ArrowRight className="size-4" />
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -531,26 +496,35 @@ export default function Home() {
       {/* Step: Export                                                        */}
       {/* ----------------------------------------------------------------- */}
       {step === "export" && (
-        <div className="flex min-h-64 items-center justify-center">
-          <div className="text-center">
-            <div className="mb-4 inline-flex size-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-950">
-              <Download className="size-8 text-green-600 dark:text-green-400" />
-            </div>
-            <h2 className="text-xl font-semibold">Export complete!</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Your Lunch Money CSV has been downloaded.
-            </p>
-            <Button
-              className="mt-6"
-              variant="outline"
-              onClick={handleReset}
-            >
-              <RefreshCw className="size-4" />
-              Start Over
-            </Button>
-          </div>
-        </div>
+        <ExportStep
+          total={transactions.length}
+          categorised={statusCounts.categorised}
+          needsReview={statusCounts["needs-review"] + statusCounts.uncategorised}
+          net={summary.net}
+          downloaded={downloaded}
+          onDownload={handleDownload}
+          onReset={handleReset}
+        />
       )}
-    </main>
+    </AppShell>
   );
+}
+
+/**
+ * Format a saved-at ISO string as a human-readable relative time,
+ * e.g. "2 hours ago", "just now", "3 days ago".
+ *
+ * @param savedAt - ISO 8601 timestamp string.
+ * @param now - Reference timestamp in epoch milliseconds.
+ * @returns Human-readable relative time string.
+ */
+function formatRelativeTime(savedAt: string, now: number): string {
+  const diffMs = now - new Date(savedAt).getTime();
+  const diffMins = Math.floor(diffMs / 60_000);
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins} minute${diffMins === 1 ? "" : "s"} ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
 }
