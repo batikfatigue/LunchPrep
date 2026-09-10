@@ -50,7 +50,7 @@ function setup({
     snapshots: SNAPSHOT,
     selectedIndex,
     categories: [],
-    apiKey: "",
+    byok: null,
     categoryMap,
     debugData: null,
     transactionCount,

@@ -13,7 +13,10 @@ import * as React from "react";
 import { RadioGroup, Select } from "radix-ui";
 import { ArrowRight, ChevronDown, HelpCircle, Lock, Sparkles } from "lucide-react";
 
-import { ApiKeyInput } from "@/components/api-key-input";
+import {
+  ApiKeyInput,
+  type AiProviderSettings,
+} from "@/components/api-key-input";
 import { FileUpload } from "@/components/file-upload";
 import { LandingHero } from "@/components/landing-hero";
 import { Button } from "@/components/ui/button";
@@ -35,9 +38,10 @@ export interface UploadStepProps {
   error: string | null;
   /** Advance to the review step (parses the selected file). */
   onContinue: () => void;
-  /** Current BYOK Gemini key ("" when unset). */
-  apiKey: string;
-  onApiKeyChange: (key: string) => void;
+  /** Current BYOK provider settings (provider + keys + overrides). */
+  aiSettings: AiProviderSettings;
+  /** Called when the user changes any AI provider setting. */
+  onAiSettingsChange: (patch: Partial<AiProviderSettings>) => void;
 }
 
 /**
@@ -51,12 +55,18 @@ export function UploadStep({
   isLoading,
   error,
   onContinue,
-  apiKey,
-  onApiKeyChange,
+  aiSettings,
+  onAiSettingsChange,
 }: UploadStepProps) {
   const [format, setFormat] = React.useState<string>(CSV_FORMATS[0].value);
+  // Reason: BYOK is the active mode when a key exists for whichever provider
+  // the user has selected.
+  const hasByokKey =
+    aiSettings.provider === "openai"
+      ? aiSettings.openaiKey.trim().length > 0
+      : aiSettings.geminiKey.trim().length > 0;
   const [mode, setMode] = React.useState<"proxy" | "byok">(
-    apiKey ? "byok" : "proxy",
+    hasByokKey ? "byok" : "proxy",
   );
 
   return (
@@ -158,13 +168,16 @@ export function UploadStep({
             <ModeOption
               value="byok"
               title="Bring your own API key (BYOK)"
-              description="Send requests directly to Google (Gemini) from your browser."
+              description="Send requests directly to your AI provider from your browser."
             />
           </RadioGroup.Root>
 
           {mode === "byok" && (
             <div className="mt-4 border-t pt-4">
-              <ApiKeyInput apiKey={apiKey} onApiKeyChange={onApiKeyChange} />
+              <ApiKeyInput
+                settings={aiSettings}
+                onSettingsChange={onAiSettingsChange}
+              />
             </div>
           )}
         </div>

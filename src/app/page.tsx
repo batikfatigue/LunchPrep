@@ -17,6 +17,7 @@ import { AppShell } from "@/components/app-shell";
 import { ExportStep } from "@/components/export/export-step";
 import { UploadStep } from "@/components/upload/upload-step";
 import { type PipelineStep } from "@/components/pipeline-steps";
+import type { AiProviderSettings } from "@/components/api-key-input";
 import {
   TransactionTable,
   computeSummary,
@@ -30,7 +31,11 @@ import { useSessionPersistence } from "@/hooks/use-session-persistence";
 import { detectAndParse } from "@/lib/parsers/registry";
 import { anonymise, restore } from "@/lib/anonymiser/pii";
 import { callCategorise } from "@/lib/categoriser/client";
-import type { DebugData } from "@/lib/categoriser/client";
+import type {
+  AiProvider,
+  BYOKConfig,
+  DebugData,
+} from "@/lib/categoriser/client";
 import { DEFAULT_CATEGORIES } from "@/lib/categoriser/categories";
 import { generateLunchMoneyCsv, downloadCsv } from "@/lib/exporter/lunchmoney";
 import { countByStatus } from "@/lib/review/status";
@@ -67,7 +72,26 @@ export default function Home() {
     "lunchprep_categories",
     DEFAULT_CATEGORIES,
   );
-  const [apiKey, setApiKey] = useLocalStorage<string>("lunchprep_gemini_key", "");
+  const [provider, setProvider] = useLocalStorage<AiProvider>(
+    "lunchprep_ai_provider",
+    "gemini",
+  );
+  const [geminiKey, setGeminiKey] = useLocalStorage<string>(
+    "lunchprep_gemini_key",
+    "",
+  );
+  const [openaiKey, setOpenaiKey] = useLocalStorage<string>(
+    "lunchprep_openai_key",
+    "",
+  );
+  const [openaiBaseUrl, setOpenaiBaseUrl] = useLocalStorage<string>(
+    "lunchprep_openai_base_url",
+    "",
+  );
+  const [openaiModel, setOpenaiModel] = useLocalStorage<string>(
+    "lunchprep_openai_model",
+    "",
+  );
 
   // ---------------------------------------------------------------------------
   // Ephemeral state (resets on page refresh)
@@ -96,6 +120,36 @@ export default function Home() {
   const [snapshots, setSnapshots] = React.useState<PipelineSnapshot>({});
   // Dev-tools: pipeline-inspector — index of the selected transaction row
   const [selectedIndex, setSelectedIndex] = React.useState<number | null>(null);
+
+  // ---------------------------------------------------------------------------
+  // Derived BYOK state
+  // ---------------------------------------------------------------------------
+
+  // Reason: Build the BYOK config once so both the real categorisation run
+  // and the dev-tools sandbox use identical provider settings. Explicit
+  // config wins over localStorage reads inside callCategorise.
+  const byokConfig: BYOKConfig | null =
+    provider === "openai"
+      ? openaiKey
+        ? {
+            provider: "openai",
+            apiKey: openaiKey,
+            baseUrl: openaiBaseUrl || undefined,
+            model: openaiModel || undefined,
+          }
+        : null
+      : geminiKey
+        ? { provider: "gemini", apiKey: geminiKey }
+        : null;
+
+  /** Current provider settings object passed to AppShell / UploadStep. */
+  const aiSettings: AiProviderSettings = {
+    provider,
+    geminiKey,
+    openaiKey,
+    openaiBaseUrl,
+    openaiModel,
+  };
 
   // ---------------------------------------------------------------------------
   // Session persistence
@@ -178,12 +232,12 @@ export default function Home() {
         setSnapshots((prev) => ({ ...prev, sent: sentEntries }));
       }
 
-      // Reason: Pass apiKey only when non-empty; callCategorise() will fall
-      // back to reading from localStorage via getBYOKKey() when undefined.
+      // Reason: Pass the BYOK config only when a key is set; callCategorise()
+      // falls back to reading localStorage via getBYOKConfig() when undefined.
       const { results, debug } = await callCategorise(
         anonymised,
         categories,
-        apiKey || undefined,
+        byokConfig ?? undefined,
       );
       // Dev-tools: pipeline-inspector — capture categorised stage (before restore)
       setSnapshots((prev) => ({ ...prev, categorised: anonymised }));
@@ -288,12 +342,17 @@ export default function Home() {
   }
 
   /**
-   * Save the user's BYOK API key and update state.
+   * Apply a partial update to the AI provider settings (persisted via
+   * the individual useLocalStorage hooks).
    *
-   * @param key - New API key value (empty string = cleared).
+   * @param patch - Subset of settings to update.
    */
-  function handleApiKeyChange(key: string) {
-    setApiKey(key);
+  function handleAiSettingsChange(patch: Partial<AiProviderSettings>) {
+    if (patch.provider !== undefined) setProvider(patch.provider);
+    if (patch.geminiKey !== undefined) setGeminiKey(patch.geminiKey);
+    if (patch.openaiKey !== undefined) setOpenaiKey(patch.openaiKey);
+    if (patch.openaiBaseUrl !== undefined) setOpenaiBaseUrl(patch.openaiBaseUrl);
+    if (patch.openaiModel !== undefined) setOpenaiModel(patch.openaiModel);
   }
 
   /**
@@ -327,8 +386,8 @@ export default function Home() {
   return (
     <AppShell
       currentStep={step}
-      apiKey={apiKey}
-      onApiKeyChange={handleApiKeyChange}
+      aiSettings={aiSettings}
+      onAiSettingsChange={handleAiSettingsChange}
       categories={categories}
       onCategoriesChange={handleCategoriesChange}
     >
@@ -367,8 +426,8 @@ export default function Home() {
             isLoading={isParsing}
             error={parseError}
             onContinue={handleContinueToReview}
-            apiKey={apiKey}
-            onApiKeyChange={handleApiKeyChange}
+            aiSettings={aiSettings}
+            onAiSettingsChange={handleAiSettingsChange}
           />
         </div>
       )}
@@ -396,7 +455,7 @@ export default function Home() {
               snapshots={snapshots}
               selectedIndex={selectedIndex}
               categories={categories}
-              apiKey={apiKey}
+              byok={byokConfig}
               categoryMap={apiCategoryMap}
               debugData={debugData}
               transactionCount={transactions.length}

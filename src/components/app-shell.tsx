@@ -12,7 +12,10 @@ import * as React from "react";
 import { Dialog } from "radix-ui";
 import { Github, Settings, X } from "lucide-react";
 
-import { ApiKeyInput } from "@/components/api-key-input";
+import {
+  ApiKeyInput,
+  type AiProviderSettings,
+} from "@/components/api-key-input";
 import { CategoryEditor } from "@/components/category-editor";
 import { PipelineSteps, type PipelineStep } from "@/components/pipeline-steps";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -22,10 +25,10 @@ import { APP_VERSION, GITHUB_URL } from "@/lib/app-meta";
 export interface AppShellProps {
   /** Active wizard step, shown in the header pills. */
   currentStep: PipelineStep;
-  /** Current BYOK Gemini key ("" when unset). */
-  apiKey: string;
-  /** Called when the user saves or clears the BYOK key. */
-  onApiKeyChange: (key: string) => void;
+  /** Current BYOK provider settings (provider + keys + overrides). */
+  aiSettings: AiProviderSettings;
+  /** Called when the user changes any AI provider setting. */
+  onAiSettingsChange: (patch: Partial<AiProviderSettings>) => void;
   /** Active category list. */
   categories: string[];
   /** Called when the user edits or reorders categories. */
@@ -41,8 +44,8 @@ export interface AppShellProps {
  */
 export function AppShell({
   currentStep,
-  apiKey,
-  onApiKeyChange,
+  aiSettings,
+  onAiSettingsChange,
   categories,
   onCategoriesChange,
   children,
@@ -77,7 +80,7 @@ export function AppShell({
                   </Dialog.Close>
                 </div>
                 <Dialog.Description className="sr-only">
-                  Configure appearance, your Gemini API key, and the category list.
+                  Configure appearance, your AI provider settings, and the category list.
                 </Dialog.Description>
 
                 <div className="flex flex-col gap-6 overflow-y-auto px-5 py-5">
@@ -92,7 +95,10 @@ export function AppShell({
                   </section>
 
                   <section className="border-t pt-5">
-                    <ApiKeyInput apiKey={apiKey} onApiKeyChange={onApiKeyChange} />
+                    <ApiKeyInput
+                      settings={aiSettings}
+                      onSettingsChange={onAiSettingsChange}
+                    />
                   </section>
 
                   <section className="border-t pt-5">

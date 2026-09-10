@@ -5,6 +5,7 @@
 - [x] Pipeline sandbox — mock transaction input form in the pipeline inspector for testing edge cases (dev-tools-pipeline-sandbox)
 - [x] Consolidate categorisation debugger into pipeline inspector (reasoning, payload, annotations → API Result Panel)
 - [x] UI/UX redesign — app shell with numbered step pills + settings dialog, upload hero with flow diagram/format select/privacy + AI mode cards, review table with filter chips/search/selection/sorting/pagination, export summary screen
+- [x] OpenAI-compatible API provider support — `AI_PROVIDER`/`OPENAI_*` env vars for the server proxy and a provider picker (key + base URL + model) for BYOK
 
 ## Discovered During Work
 

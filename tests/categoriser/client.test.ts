@@ -6,9 +6,21 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { getBYOKKey, setBYOKKey } from "@/lib/categoriser/client";
+import {
+  getBYOKKey,
+  setBYOKKey,
+  getAIProvider,
+  setAIProvider,
+  getOpenAIKey,
+  setOpenAIKey,
+  getBYOKConfig,
+} from "@/lib/categoriser/client";
 
 const STORAGE_KEY = "lunchprep_gemini_key";
+const PROVIDER_KEY = "lunchprep_ai_provider";
+const OPENAI_KEY = "lunchprep_openai_key";
+const OPENAI_BASE_URL_KEY = "lunchprep_openai_base_url";
+const OPENAI_MODEL_KEY = "lunchprep_openai_model";
 
 describe("getBYOKKey", () => {
   beforeEach(() => {
@@ -64,5 +76,93 @@ describe("setBYOKKey", () => {
     setBYOKKey("AIzaSy_test_key");
     setBYOKKey("");
     expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+});
+
+describe("getAIProvider / setAIProvider", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it("defaults to gemini when unset", () => {
+    expect(getAIProvider()).toBe("gemini");
+  });
+
+  it("returns openai after setAIProvider('openai')", () => {
+    setAIProvider("openai");
+    expect(getAIProvider()).toBe("openai");
+    expect(window.localStorage.getItem(PROVIDER_KEY)).toBe(
+      JSON.stringify("openai"),
+    );
+  });
+
+  it("falls back to gemini for unrecognised stored values", () => {
+    window.localStorage.setItem(PROVIDER_KEY, JSON.stringify("anthropic"));
+    expect(getAIProvider()).toBe("gemini");
+  });
+});
+
+describe("getOpenAIKey / setOpenAIKey", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it("returns null when no key is stored", () => {
+    expect(getOpenAIKey()).toBeNull();
+  });
+
+  it("round-trips a JSON-serialised key", () => {
+    setOpenAIKey("sk-test-key");
+    expect(getOpenAIKey()).toBe("sk-test-key");
+    expect(window.localStorage.getItem(OPENAI_KEY)).toBe(
+      JSON.stringify("sk-test-key"),
+    );
+  });
+
+  it("removes the entry when null is passed", () => {
+    setOpenAIKey("sk-test-key");
+    setOpenAIKey(null);
+    expect(getOpenAIKey()).toBeNull();
+  });
+});
+
+describe("getBYOKConfig", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it("returns null when no key is set for the selected provider", () => {
+    expect(getBYOKConfig()).toBeNull();
+  });
+
+  it("returns a gemini config when provider is gemini and a key exists", () => {
+    setBYOKKey("AIzaSy_test_key");
+    expect(getBYOKConfig()).toEqual({
+      provider: "gemini",
+      apiKey: "AIzaSy_test_key",
+    });
+  });
+
+  it("returns an openai config with optional overrides", () => {
+    setAIProvider("openai");
+    setOpenAIKey("sk-test");
+    window.localStorage.setItem(
+      OPENAI_BASE_URL_KEY,
+      JSON.stringify("https://openrouter.ai/api/v1"),
+    );
+    window.localStorage.setItem(OPENAI_MODEL_KEY, JSON.stringify("gpt-4o"));
+
+    expect(getBYOKConfig()).toEqual({
+      provider: "openai",
+      apiKey: "sk-test",
+      baseUrl: "https://openrouter.ai/api/v1",
+      model: "gpt-4o",
+    });
+  });
+
+  it("returns null when provider is openai but no openai key exists", () => {
+    setAIProvider("openai");
+    setBYOKKey("AIzaSy_test_key"); // gemini key must not be used for openai
+    expect(getBYOKConfig()).toBeNull();
   });
 });

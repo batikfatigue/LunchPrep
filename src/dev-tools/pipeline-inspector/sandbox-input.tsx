@@ -18,7 +18,7 @@ import { buildCsv } from "@/dev-tools/pipeline-inspector/mock-csv";
 import { dbsParser } from "@/lib/parsers/dbs";
 import { anonymise, restore } from "@/lib/anonymiser/pii";
 import { callCategorise } from "@/lib/categoriser/client";
-import type { DebugData } from "@/lib/categoriser/client";
+import type { BYOKConfig, DebugData } from "@/lib/categoriser/client";
 import type { PipelineSnapshot, GeminiSentEntry } from "@/lib/pipeline-snapshot";
 
 // ---------------------------------------------------------------------------
@@ -38,8 +38,8 @@ export interface SandboxResult {
 export interface SandboxInputProps {
   /** Category list for Full Pipeline mode. */
   categories: string[];
-  /** Gemini API key for Full Pipeline mode. */
-  apiKey: string;
+  /** BYOK provider config for Full Pipeline mode (null = use proxy). */
+  byok: BYOKConfig | null;
   /** Called when the sandbox executes successfully. */
   onExecute: (result: SandboxResult) => void;
 }
@@ -79,7 +79,7 @@ type RunMode = "parse-anonymise" | "full-pipeline";
  */
 export default function SandboxInput({
   categories,
-  apiKey,
+  byok,
   onExecute,
 }: SandboxInputProps) {
   const [code, setCode] = React.useState<string>("ICT");
@@ -132,7 +132,7 @@ export default function SandboxInput({
         const { results, debug } = await callCategorise(
           anonymised,
           categories,
-          apiKey || undefined,
+          byok ?? undefined,
         );
 
         // Capture categorised stage (before restore)

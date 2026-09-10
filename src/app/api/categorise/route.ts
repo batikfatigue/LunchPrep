@@ -1,17 +1,21 @@
 /**
- * POST /api/categorise — Gemini categorisation proxy.
+ * POST /api/categorise — AI categorisation proxy.
  *
  * Stateless server-side proxy that forwards anonymised transaction batches
- * to the Gemini API and returns structured category assignments. The server
- * never receives raw PII — anonymisation happens client-side before calling
- * this endpoint.
+ * to the configured AI provider and returns structured category assignments.
+ * The server never receives raw PII — anonymisation happens client-side
+ * before calling this endpoint.
+ *
+ * Providers (selected via the AI_PROVIDER env var):
+ * - "gemini" (default) — Google Gemini via @google/generative-ai
+ * - "openai" — any OpenAI-compatible chat completions endpoint
  *
  * Features:
  * - IP-based rate limiting (default: 10 RPM, configurable via RATE_LIMIT_RPM)
- * - Structured JSON output via Gemini responseSchema
+ * - Structured JSON output (Gemini responseSchema / OpenAI json_object mode)
  * - Returns { results: [{ index, category }] } on success
  * - Returns 429 with retryAfter on rate limit
- * - Returns 500 on Gemini SDK failure
+ * - Returns 500 on provider failure
  *
  * @see specs/ai-categorisation.md for API contract
  */
@@ -19,6 +23,7 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import type { ObjectSchema } from "@google/generative-ai";
 import { SYSTEM_INSTRUCTION, DEV_SYSTEM_INSTRUCTION } from "@/lib/categoriser/prompt";
+import { callOpenAIChat } from "@/lib/categoriser/openai";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -45,11 +50,14 @@ interface CategorisationResult {
 }
 
 /**
- * Extended result shape returned by Gemini when dev-mode reasoning is requested.
- * The `reasoning` field is stripped before sending back the public results array.
+ * Result item with optional reasoning, as returned by a provider when the
+ * dev-mode system instruction requests it. The `reasoning` field is
+ * stripped before sending back the public results array.
  */
-interface DevCategorisationResult extends CategorisationResult {
-  reasoning: string;
+interface MaybeReasonedResult {
+  index: number;
+  category: string;
+  reasoning?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -161,71 +169,63 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({ results: [] }, { status: 200 });
   }
 
-  // 3. Ensure API key is configured
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    console.error("[/api/categorise] GEMINI_API_KEY environment variable is not set");
-    return Response.json(
-      { error: "Gemini API key is not configured on the server" },
-      { status: 500 },
-    );
-  }
+  // 3. Select the AI provider (defaults to Gemini for backwards compatibility)
+  const provider = (process.env.AI_PROVIDER ?? "gemini").toLowerCase();
 
-  // 4. Call Gemini with structured output
+  // Build user prompt: send category list + transaction batch as one JSON block.
+  // Identical for every provider — each adapter wraps it in its own wire format.
+  const userPrompt = JSON.stringify(
+    {
+      valid_categories: body.categories,
+      transactions: body.transactions,
+    },
+    null,
+    2,
+  );
+
+  const systemInstruction = IS_DEV_MODE
+    ? DEV_SYSTEM_INSTRUCTION
+    : SYSTEM_INSTRUCTION;
+
+  // 4. Call the selected provider
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
+    // Provider result items may carry a `reasoning` field in dev mode.
+    let rawResults: MaybeReasonedResult[];
 
-    // Reason: In dev mode, the schema is extended with a `reasoning` field so
-    // Gemini explains each categorisation decision. This field is never added
-    // in production to avoid extra cost and latency.
-    const prodResultSchema: ObjectSchema = {
-      type: SchemaType.OBJECT,
-      properties: {
-        index: { type: SchemaType.INTEGER },
-        category: { type: SchemaType.STRING },
-      },
-      required: ["index", "category"],
-    };
-
-    const devResultSchema: ObjectSchema = {
-      type: SchemaType.OBJECT,
-      properties: {
-        index: { type: SchemaType.INTEGER },
-        category: { type: SchemaType.STRING },
-        reasoning: { type: SchemaType.STRING },
-      },
-      required: ["index", "category", "reasoning"],
-    };
-
-    const model = genAI.getGenerativeModel({
-      model: process.env.GEMINI_MODEL ?? "gemini-2.5-flash-lite",
-      systemInstruction: IS_DEV_MODE ? DEV_SYSTEM_INSTRUCTION : SYSTEM_INSTRUCTION,
-      generationConfig: {
-        temperature: 0.0,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: SchemaType.ARRAY,
-          items: IS_DEV_MODE ? devResultSchema : prodResultSchema,
-        },
-      },
-    });
-
-    // Build user prompt: send category list + transaction batch as one JSON block
-    const userPrompt = JSON.stringify(
-      {
-        valid_categories: body.categories,
-        transactions: body.transactions,
-      },
-      null,
-      2,
-    );
-
-    const result = await model.generateContent(userPrompt);
-    const text = result.response.text();
+    if (provider === "openai") {
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        console.error("[/api/categorise] OPENAI_API_KEY environment variable is not set");
+        return Response.json(
+          { error: "OpenAI API key is not configured on the server" },
+          { status: 500 },
+        );
+      }
+      rawResults = await callOpenAIChat(systemInstruction, userPrompt, {
+        apiKey,
+        baseUrl: process.env.OPENAI_BASE_URL,
+        model: process.env.OPENAI_MODEL,
+      });
+    } else if (provider === "gemini") {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        console.error("[/api/categorise] GEMINI_API_KEY environment variable is not set");
+        return Response.json(
+          { error: "Gemini API key is not configured on the server" },
+          { status: 500 },
+        );
+      }
+      rawResults = await callGemini(apiKey, userPrompt);
+    } else {
+      console.error(`[/api/categorise] Unsupported AI_PROVIDER: ${provider}`);
+      return Response.json(
+        { error: `Unsupported AI_PROVIDER "${provider}" (expected "gemini" or "openai")` },
+        { status: 500 },
+      );
+    }
 
     if (IS_DEV_MODE) {
-      const devResults = JSON.parse(text) as DevCategorisationResult[];
-      const results: CategorisationResult[] = devResults.map(({ index, category }) => ({
+      const results: CategorisationResult[] = rawResults.map(({ index, category }) => ({
         index,
         category,
       }));
@@ -234,17 +234,83 @@ export async function POST(req: Request): Promise<Response> {
           results,
           debug: {
             rawPayload: userPrompt,
-            perTransaction: devResults.map(({ index, reasoning }) => ({ index, reasoning })),
+            perTransaction: rawResults.map(({ index, reasoning }) => ({
+              index,
+              reasoning: reasoning ?? "",
+            })),
           },
         },
         { status: 200 },
       );
     }
 
-    const results = JSON.parse(text) as CategorisationResult[];
+    const results: CategorisationResult[] = rawResults.map(({ index, category }) => ({
+      index,
+      category,
+    }));
     return Response.json({ results }, { status: 200 });
   } catch (err) {
-    console.error("[/api/categorise] Gemini API error:", err);
-    return Response.json({ error: "Gemini API request failed" }, { status: 500 });
+    console.error(`[/api/categorise] ${provider} API error:`, err);
+    return Response.json(
+      { error: "AI provider request failed" },
+      { status: 500 },
+    );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Internal: Gemini provider
+// ---------------------------------------------------------------------------
+
+/**
+ * Call Gemini with a structured JSON schema for categorisation.
+ *
+ * @param apiKey - Server-side Gemini API key (GEMINI_API_KEY).
+ * @param userPrompt - Stringified { valid_categories, transactions } payload.
+ * @returns Parsed result items; `reasoning` is present when dev mode is on.
+ */
+async function callGemini(
+  apiKey: string,
+  userPrompt: string,
+): Promise<MaybeReasonedResult[]> {
+  const genAI = new GoogleGenerativeAI(apiKey);
+
+  // Reason: In dev mode, the schema is extended with a `reasoning` field so
+  // Gemini explains each categorisation decision. This field is never added
+  // in production to avoid extra cost and latency.
+  const prodResultSchema: ObjectSchema = {
+    type: SchemaType.OBJECT,
+    properties: {
+      index: { type: SchemaType.INTEGER },
+      category: { type: SchemaType.STRING },
+    },
+    required: ["index", "category"],
+  };
+
+  const devResultSchema: ObjectSchema = {
+    type: SchemaType.OBJECT,
+    properties: {
+      index: { type: SchemaType.INTEGER },
+      category: { type: SchemaType.STRING },
+      reasoning: { type: SchemaType.STRING },
+    },
+    required: ["index", "category", "reasoning"],
+  };
+
+  const model = genAI.getGenerativeModel({
+    model: process.env.GEMINI_MODEL ?? "gemini-2.5-flash-lite",
+    systemInstruction: IS_DEV_MODE ? DEV_SYSTEM_INSTRUCTION : SYSTEM_INSTRUCTION,
+    generationConfig: {
+      temperature: 0.0,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: SchemaType.ARRAY,
+        items: IS_DEV_MODE ? devResultSchema : prodResultSchema,
+      },
+    },
+  });
+
+  const result = await model.generateContent(userPrompt);
+  const text = result.response.text();
+  return JSON.parse(text) as MaybeReasonedResult[];
 }
