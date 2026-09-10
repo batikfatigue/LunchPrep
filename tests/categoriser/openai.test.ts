@@ -106,6 +106,79 @@ describe("callOpenAIChat", () => {
     expect(results[0].reasoning).toBe("merchant food stall");
   });
 
+  it("strips a trailing /chat/completions from the base URL", async () => {
+    const fetchMock = mockFetchOnce(chatBody("[]"));
+
+    await callOpenAIChat(SYSTEM_INSTRUCTION, PROMPT, {
+      apiKey: "k",
+      baseUrl: "https://example.com/v1/chat/completions",
+    });
+
+    const [url] = fetchMock.mock.calls[0] as [string];
+    expect(url).toBe("https://example.com/v1/chat/completions");
+  });
+
+  it("retries without response_format when the endpoint returns HTTP 400", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: "unsupported param" }), {
+          status: 400,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify(chatBody('[{"index":0,"category":"Dining"}]')),
+          { status: 200 },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const results = await callOpenAIChat(SYSTEM_INSTRUCTION, PROMPT, {
+      apiKey: "k",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const retryBody = JSON.parse(
+      (fetchMock.mock.calls[1] as [string, RequestInit])[1].body as string,
+    );
+    expect(retryBody.response_format).toBeUndefined();
+    expect(results[0]).toMatchObject({ index: 0, category: "Dining" });
+  });
+
+  it("joins content returned as an array of typed parts", async () => {
+    mockFetchOnce({
+      choices: [
+        {
+          message: {
+            content: [
+              { type: "text", text: '[{"index":0,' },
+              { type: "text", text: '"category":"Dining"}]' },
+            ],
+          },
+        },
+      ],
+    });
+
+    const results = await callOpenAIChat(SYSTEM_INSTRUCTION, PROMPT, {
+      apiKey: "k",
+    });
+    expect(results[0]).toMatchObject({ index: 0, category: "Dining" });
+  });
+
+  it("throws a URL-naming error when the network request fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new TypeError("fetch failed")),
+    );
+    await expect(
+      callOpenAIChat(SYSTEM_INSTRUCTION, PROMPT, {
+        apiKey: "k",
+        baseUrl: "http://localhost:11434/v1",
+      }),
+    ).rejects.toThrow("http://localhost:11434/v1/chat/completions");
+  });
+
   it("throws on non-OK HTTP responses", async () => {
     mockFetchOnce({ error: "unauthorized" }, { ok: false, status: 401 });
     await expect(
@@ -137,5 +210,21 @@ describe("parseCategorisationContent", () => {
     expect(() =>
       parseCategorisationContent('[{"index":0}]'),
     ).toThrow();
+  });
+
+  it("parses markdown-fenced JSON output", () => {
+    const items = parseCategorisationContent(
+      '```json\n[{"index":0,"category":"Dining"}]\n```',
+    );
+    expect(items).toEqual([
+      { index: 0, category: "Dining", reasoning: undefined },
+    ]);
+  });
+
+  it("parses JSON surrounded by prose", () => {
+    const items = parseCategorisationContent(
+      'Here are the results: [{"index":0,"category":"Dining"}] — done.',
+    );
+    expect(items[0]).toMatchObject({ index: 0, category: "Dining" });
   });
 });

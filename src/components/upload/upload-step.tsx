@@ -42,6 +42,13 @@ export interface UploadStepProps {
   aiSettings: AiProviderSettings;
   /** Called when the user changes any AI provider setting. */
   onAiSettingsChange: (patch: Partial<AiProviderSettings>) => void;
+  /**
+   * AI categorisation routing. "proxy" calls the server /api/categorise route;
+   * "byok" calls the provider directly from the browser with the saved key.
+   */
+  mode: "proxy" | "byok";
+  /** Called when the user switches between proxy and BYOK mode. */
+  onModeChange: (mode: "proxy" | "byok") => void;
 }
 
 /**
@@ -57,17 +64,10 @@ export function UploadStep({
   onContinue,
   aiSettings,
   onAiSettingsChange,
+  mode,
+  onModeChange,
 }: UploadStepProps) {
   const [format, setFormat] = React.useState<string>(CSV_FORMATS[0].value);
-  // Reason: BYOK is the active mode when a key exists for whichever provider
-  // the user has selected.
-  const hasByokKey =
-    aiSettings.provider === "openai"
-      ? aiSettings.openaiKey.trim().length > 0
-      : aiSettings.geminiKey.trim().length > 0;
-  const [mode, setMode] = React.useState<"proxy" | "byok">(
-    hasByokKey ? "byok" : "proxy",
-  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -157,7 +157,7 @@ export function UploadStep({
           <p className="text-sm font-medium">AI categorisation</p>
           <RadioGroup.Root
             value={mode}
-            onValueChange={(value) => setMode(value as "proxy" | "byok")}
+            onValueChange={(value) => onModeChange(value as "proxy" | "byok")}
             className="mt-3 flex flex-col gap-3"
           >
             <ModeOption

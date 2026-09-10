@@ -5,7 +5,7 @@
  * the useLocalStorage JSON serialisation format.
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   getBYOKKey,
   setBYOKKey,
@@ -14,7 +14,9 @@ import {
   getOpenAIKey,
   setOpenAIKey,
   getBYOKConfig,
+  callCategorise,
 } from "@/lib/categoriser/client";
+import { DEFAULT_CATEGORIES } from "@/lib/categoriser/categories";
 
 const STORAGE_KEY = "lunchprep_gemini_key";
 const PROVIDER_KEY = "lunchprep_ai_provider";
@@ -164,5 +166,30 @@ describe("getBYOKConfig", () => {
     setAIProvider("openai");
     setBYOKKey("AIzaSy_test_key"); // gemini key must not be used for openai
     expect(getBYOKConfig()).toBeNull();
+  });
+});
+
+describe("callCategorise routing", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("uses the server proxy when byok is explicitly null, ignoring stored keys", async () => {
+    setAIProvider("openai");
+    setOpenAIKey("sk-test");
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ results: [] }), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await callCategorise([], DEFAULT_CATEGORIES, null);
+
+    expect(res.results).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/categorise");
   });
 });

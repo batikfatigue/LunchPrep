@@ -251,18 +251,21 @@ export function setBYOKKey(key: string | null): void {
  *
  * @param transactions - Anonymised RawTransaction[] (PII must be masked first).
  * @param categories - Category list. Defaults to DEFAULT_CATEGORIES.
- * @param byok - Explicit BYOK config override (useful for testing). If omitted,
- *   reads from localStorage via getBYOKConfig().
+ * @param byok - Explicit BYOK config override (useful for testing). Pass
+ *   `undefined` to auto-detect from localStorage via getBYOKConfig(), or
+ *   `null` to force the server proxy even when a BYOK key is stored.
  * @returns Object with `results` array and optional `debug` data (dev mode only).
  * @throws Error with message "RATE_LIMITED:<retryAfter>" on HTTP 429.
- * @throws Error with message "SERVER_ERROR" on HTTP 500 or provider failure.
+ * @throws Error with message "SERVER_ERROR" on HTTP 500 or Gemini failure. For
+ *   the OpenAI-compatible path, the underlying error message is preserved so
+ *   the caller can show the real cause.
  */
 export async function callCategorise(
   transactions: RawTransaction[],
   categories: string[] = DEFAULT_CATEGORIES,
-  byok?: BYOKConfig,
+  byok?: BYOKConfig | null,
 ): Promise<CategoriseResponse> {
-  const config = byok ?? getBYOKConfig();
+  const config = byok === undefined ? getBYOKConfig() : byok;
 
   if (config?.provider === "openai") {
     const results = await callOpenAIDirect(transactions, categories, config);
@@ -416,6 +419,9 @@ async function callOpenAIDirect(
     return items.map(({ index, category }) => ({ index, category }));
   } catch (err) {
     console.error("[callOpenAIDirect] OpenAI-compatible error:", err);
-    throw new Error("SERVER_ERROR");
+    // Reason: Preserve the underlying message (HTTP status, unreachable host,
+    // unparseable output) so the review banner can show why the endpoint
+    // failed — a generic SERVER_ERROR leaves the user unable to diagnose it.
+    throw err instanceof Error ? err : new Error("SERVER_ERROR");
   }
 }
