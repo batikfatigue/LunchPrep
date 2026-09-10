@@ -108,6 +108,16 @@ export default function Home() {
   // Reason: Keeps the API Result Panel showing the original AI output even after user edits categoryMap.
   const [apiCategoryMap, setApiCategoryMap] = React.useState<ReadonlyMap<number, string>>(new Map());
   const [catStatus, setCatStatus] = React.useState<CategorisationStatus>("idle");
+  // Reason: Provider errors (HTTP status, unreachable host, unparseable JSON)
+  // are surfaced in the review error banner so the user can tell why a BYOK
+  // endpoint failed instead of seeing a generic failure message.
+  const [catError, setCatError] = React.useState<string | null>(null);
+  /**
+   * AI categorisation routing: "proxy" = server /api/categorise, "byok" =
+   * direct browser call. null = not yet chosen — the effective mode then
+   * defaults to "byok" when a key exists for the selected provider.
+   */
+  const [aiMode, setAiMode] = React.useState<"proxy" | "byok" | null>(null);
   const [parseError, setParseError] = React.useState<string | null>(null);
   // Dev-mode only: debug data from the categorisation API (reasoning + raw payload).
   // Stays null in production since the API never returns debug data there.
@@ -141,6 +151,14 @@ export default function Home() {
       : geminiKey
         ? { provider: "gemini", apiKey: geminiKey }
         : null;
+
+  // Reason: The upload-step radio is authoritative once touched; before that
+  // it defaults to BYOK whenever the selected provider has a saved key.
+  const effectiveMode: "proxy" | "byok" =
+    aiMode ?? (byokConfig ? "byok" : "proxy");
+  /** BYOK config gated by the selected mode — null forces the server proxy. */
+  const effectiveByok: BYOKConfig | null =
+    effectiveMode === "byok" ? byokConfig : null;
 
   /** Current provider settings object passed to AppShell / UploadStep. */
   const aiSettings: AiProviderSettings = {
@@ -211,6 +229,7 @@ export default function Home() {
    */
   async function triggerCategorise(txs: RawTransaction[] = transactions) {
     setCatStatus("loading");
+    setCatError(null);
     setSnapshots({}); // Dev-tools: pipeline-inspector — reset snapshot for new run
     try {
       // Dev-tools: pipeline-inspector — capture parsed stage
@@ -232,12 +251,13 @@ export default function Home() {
         setSnapshots((prev) => ({ ...prev, sent: sentEntries }));
       }
 
-      // Reason: Pass the BYOK config only when a key is set; callCategorise()
-      // falls back to reading localStorage via getBYOKConfig() when undefined.
+      // Reason: BYOK mode passes the resolved config (or undefined →
+      // localStorage fallback when no key is set); proxy mode passes null so
+      // stored keys are ignored and /api/categorise is used as selected.
       const { results, debug } = await callCategorise(
         anonymised,
         categories,
-        byokConfig ?? undefined,
+        effectiveMode === "byok" ? (byokConfig ?? undefined) : null,
       );
       // Dev-tools: pipeline-inspector — capture categorised stage (before restore)
       setSnapshots((prev) => ({ ...prev, categorised: anonymised }));
@@ -256,9 +276,10 @@ export default function Home() {
       setCategoryMap(map);
       setApiCategoryMap(new Map(map)); // immutable snapshot of the original AI result
       setCatStatus("done");
-    } catch {
+    } catch (err) {
       // Reason: Keep status as "error" so the error banner is shown.
       // The user can still assign categories manually.
+      setCatError(err instanceof Error ? err.message : null);
       setCatStatus("error");
     }
   }
@@ -282,6 +303,8 @@ export default function Home() {
     setCategoryMap(new Map());
     setApiCategoryMap(new Map());
     setCatStatus("idle");
+    setCatError(null);
+    setAiMode(null);
     setParseError(null);
     setDebugData(null);
     setCsvFilename("");
@@ -428,6 +451,8 @@ export default function Home() {
             onContinue={handleContinueToReview}
             aiSettings={aiSettings}
             onAiSettingsChange={handleAiSettingsChange}
+            mode={effectiveMode}
+            onModeChange={setAiMode}
           />
         </div>
       )}
@@ -442,6 +467,7 @@ export default function Home() {
             categories={categories}
             categoryMap={categoryMap}
             status={catStatus}
+            errorDetail={catError}
             onCategoryChange={handleCategoryChange}
             onPayeeChange={handlePayeeChange}
             onNotesChange={handleNotesChange}
@@ -455,7 +481,7 @@ export default function Home() {
               snapshots={snapshots}
               selectedIndex={selectedIndex}
               categories={categories}
-              byok={byokConfig}
+              byok={effectiveByok}
               categoryMap={apiCategoryMap}
               debugData={debugData}
               transactionCount={transactions.length}

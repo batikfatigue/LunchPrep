@@ -129,10 +129,12 @@ export default function SandboxInput({
         }));
         snapshot.sent = sentEntries;
 
+        // Reason: Pass byok through verbatim — null means "use the server
+        // proxy" even when a BYOK key exists in localStorage.
         const { results, debug } = await callCategorise(
           anonymised,
           categories,
-          byok ?? undefined,
+          byok,
         );
 
         // Capture categorised stage (before restore)

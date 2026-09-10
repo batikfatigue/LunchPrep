@@ -52,6 +52,11 @@ export interface TransactionTableProps {
   /** Status of the AI categorisation call controlling overlay rendering. */
   status: CategorisationStatus;
   /**
+   * Provider error message shown in the error banner so a failed BYOK call is
+   * diagnosable (e.g. HTTP 401, unreachable host, unparseable output).
+   */
+  errorDetail?: string | null;
+  /**
    * Callback fired when the user changes a category dropdown.
    *
    * @param index - 0-based transaction index.
@@ -159,6 +164,7 @@ export function TransactionTable({
   categories,
   categoryMap,
   status,
+  errorDetail,
   onCategoryChange,
   onPayeeChange,
   onNotesChange,
@@ -285,6 +291,11 @@ export function TransactionTable({
           <div className="border-b border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             AI categorisation failed. You can assign categories manually using the
             dropdowns below.
+            {errorDetail && (
+              <span className="mt-1 block break-all font-mono text-xs opacity-80">
+                {errorDetail}
+              </span>
+            )}
           </div>
         )}
 
