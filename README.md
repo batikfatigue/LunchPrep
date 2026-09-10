@@ -2,7 +2,7 @@
 
 # LunchPrep
 
-Convert Singapore bank statement CSVs into clean, import-ready files for **Lunch Money** — with intelligent, batch transaction categorisation powered by **Google Gemini**.
+Convert Singapore bank statement CSVs into clean, import-ready files for **Lunch Money** — with intelligent, batch transaction categorisation powered by **Google Gemini** or any **OpenAI-compatible** API.
 
 <br/>
 
@@ -21,18 +21,18 @@ Convert Singapore bank statement CSVs into clean, import-ready files for **Lunch
 
 ## Overview
 
-LunchPrep helps you transform raw DBS bank CSV exports into a format ready for seamless import into [Lunch Money](https://lunchmoney.app). It uses **Google Gemini** to intelligently suggest categories for every transaction.
+LunchPrep helps you transform raw DBS bank CSV exports into a format ready for seamless import into [Lunch Money](https://lunchmoney.app). It uses **Google Gemini** or any **OpenAI-compatible API** (OpenAI, Azure OpenAI, OpenRouter, Ollama, LM Studio, vLLM, …) to intelligently suggest categories for every transaction.
 
 ### Privacy First
 
 All CSV parsing and financial data processing happens **entirely in your browser** — no bank data is ever sent to or stored on the server. Before any AI categorisation call, real names and account numbers are replaced with realistic placeholders. Your original data is restored locally before export.
 
-You can also use **Bring Your Own Key (BYOK)** mode: enter your personal Gemini API key in the app settings to route AI calls directly from your browser to Google, bypassing the shared server proxy entirely.
+You can also use **Bring Your Own Key (BYOK)** mode: pick a provider in the app settings and enter your personal API key to route AI calls directly from your browser to the provider, bypassing the shared server proxy entirely. The **OpenAI-compatible** option accepts a custom base URL and model, so any chat-completions endpoint works.
 
 ### How it works
 
 1. **Upload** — Export your DBS statement CSV from internet banking and drop it in.
-2. **Review** — Gemini AI categorises every transaction. Edit payees, notes, or categories inline.
+2. **Review** — AI categorises every transaction. Edit payees, notes, or categories inline.
 3. **Export** — Download a Lunch Money-compatible CSV and import it in one click.
 
 ---
@@ -43,11 +43,15 @@ All variables are passed at **runtime** (never at build time).
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `GEMINI_API_KEY` | Yes *(hosted mode)* | — | Server-side Gemini API key for the `/api/categorise` proxy |
+| `AI_PROVIDER` | No | `gemini` | AI provider for the `/api/categorise` proxy: `gemini` or `openai` |
+| `GEMINI_API_KEY` | Yes *(hosted mode, `AI_PROVIDER=gemini`)* | — | Server-side Gemini API key for the `/api/categorise` proxy |
 | `GEMINI_MODEL` | No | `gemini-2.5-flash-lite` | Gemini model name to use |
+| `OPENAI_API_KEY` | Yes *(hosted mode, `AI_PROVIDER=openai`)* | — | Server-side key for the OpenAI-compatible endpoint |
+| `OPENAI_BASE_URL` | No | `https://api.openai.com/v1` | OpenAI-compatible base URL (any chat-completions endpoint) |
+| `OPENAI_MODEL` | No | `gpt-4o-mini` | Model name for the OpenAI-compatible endpoint |
 | `RATE_LIMIT_RPM` | No | `10` | Max requests per minute per IP on the server proxy |
 
-> **BYOK mode:** If users provide their own Gemini API key in the app, `GEMINI_API_KEY` is not required on the server.
+> **BYOK mode:** If users provide their own API key in the app, the matching server-side key is not required.
 
 ---
 
@@ -112,7 +116,19 @@ docker run \
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-> **Optional variables:** `GEMINI_MODEL` and `RATE_LIMIT_RPM` can be omitted to use defaults.
+To use an OpenAI-compatible provider instead:
+
+```bash
+docker run \
+  -p 3000:3000 \
+  -e AI_PROVIDER=openai \
+  -e OPENAI_API_KEY=your-api-key-here \
+  -e OPENAI_BASE_URL=https://api.openai.com/v1 \
+  -e OPENAI_MODEL=gpt-4o-mini \
+  lunchprep
+```
+
+> **Optional variables:** `GEMINI_MODEL`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, and `RATE_LIMIT_RPM` can be omitted to use defaults.
 
 ### Docker Compose (optional)
 
@@ -195,6 +211,7 @@ Cloud Run automatically handles:
 3. In the **Environment Variables** section, add:
    - `GEMINI_API_KEY` = your Gemini API key
    - *(optional)* `GEMINI_MODEL`, `RATE_LIMIT_RPM`
+   - For OpenAI-compatible providers instead: `AI_PROVIDER=openai`, `OPENAI_API_KEY`, *(optional)* `OPENAI_BASE_URL`, `OPENAI_MODEL`
 4. Click **Deploy**.
 
 Vercel automatically detects Next.js and applies optimal build settings.
@@ -216,7 +233,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md#adding-a-new-bank-parser) for a step-by-
 | Framework | Next.js 16 + TypeScript (strict) |
 | UI | shadcn/ui + Tailwind CSS 4 |
 | CSV parsing | PapaParse (client-side) |
-| AI | Gemini 2.5 Flash-Lite via `@google/generative-ai` |
+| AI | Gemini 2.5 Flash-Lite via `@google/generative-ai`, or any OpenAI-compatible chat completions API (plain `fetch`) |
 | Testing | Vitest |
 | Deploy | Vercel (primary), Docker / Google Cloud Run (self-hosted) |
 

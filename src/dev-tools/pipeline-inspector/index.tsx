@@ -15,7 +15,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import type { PipelineSnapshot, GeminiSentEntry } from "@/lib/pipeline-snapshot";
 import type { RawTransaction } from "@/lib/parsers/types";
-import type { DebugData } from "@/lib/categoriser/client";
+import type { BYOKConfig, DebugData } from "@/lib/categoriser/client";
 import SandboxInput, { type SandboxResult } from "@/dev-tools/pipeline-inspector/sandbox-input";
 import JumpInput from "@/dev-tools/pipeline-inspector/jump-input";
 import StageDiffTable, {
@@ -48,8 +48,8 @@ export interface PipelineInspectorProps {
   selectedIndex: number | null;
   /** Category list for sandbox Full Pipeline mode. */
   categories: string[];
-  /** Gemini API key for sandbox Full Pipeline mode. */
-  apiKey: string;
+  /** BYOK provider config for sandbox Full Pipeline mode (null = use proxy). */
+  byok: BYOKConfig | null;
   /** Map of transaction index → assigned category (from real categorisation run). */
   categoryMap: ReadonlyMap<number, string>;
   /** Debug data from real categorisation run (null if BYOK or not yet run). */
@@ -73,7 +73,7 @@ export default function PipelineInspector({
   snapshots,
   selectedIndex,
   categories,
-  apiKey,
+  byok,
   categoryMap,
   debugData,
   transactionCount,
@@ -283,7 +283,7 @@ export default function PipelineInspector({
       {/* Sandbox input — always rendered above the inspector */}
       <SandboxInput
         categories={categories}
-        apiKey={apiKey}
+        byok={byok}
         onExecute={handleSandboxExecute}
       />
 

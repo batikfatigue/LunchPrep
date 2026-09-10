@@ -10,6 +10,7 @@
             │    (Merchants are preserved so AI can categorise accurately)
             ↓
             ├──→ Next.js /api/categorise (stateless proxy) ──→ Gemini 2.5 Flash-Lite
+            │                                                  or OpenAI-compatible API
             ↓
 [App]    Restore Original PII
             ↓
@@ -25,7 +26,7 @@ src/
 ├── app/
 │   ├── page.tsx                  # Wizard UI
 │   ├── layout.tsx
-│   └── api/categorise/route.ts   # Gemini proxy + rate limiting
+│   └── api/categorise/route.ts   # AI provider proxy + rate limiting
 ├── lib/
 │   ├── parsers/
 │   │   ├── data/
@@ -35,7 +36,9 @@ src/
 │   │   └── registry.ts           # Auto-detect bank from CSV headers
 │   ├── anonymiser/pii.ts         # Extract PII → mock replacement → restore
 │   ├── categoriser/
-│   │   ├── prompt.ts             # Gemini prompt builder
+│   │   ├── prompt.ts             # Shared prompt builder (system instruction + user payload)
+│   │   ├── openai.ts             # OpenAI-compatible chat completions caller (plain fetch)
+│   │   ├── client.ts             # Provider routing: proxy vs BYOK direct calls
 │   │   └── categories.ts         # Default + user-defined categories
 │   └── exporter/lunchmoney.ts    # Lunch Money CSV generator
 └── components/
@@ -43,7 +46,7 @@ src/
     ├── transaction-table.tsx      # Editable review table
     ├── category-editor.tsx
     ├── pipeline-steps.tsx
-    └── api-key-input.tsx          # BYOK
+    └── api-key-input.tsx          # BYOK (provider picker: Gemini / OpenAI-compatible)
 
 tests/
 ├── parsers/dbs.test.ts
@@ -78,13 +81,17 @@ Registry auto-selects the correct parser; adding a bank = adding one file implem
 | Framework | Next.js 16 + TypeScript |
 | UI | shadcn/ui + Tailwind CSS 4 |
 | CSV parsing | PapaParse (client-side) |
-| AI | Gemini 2.5 Flash-Lite via `@google/generative-ai` |
+| AI | Gemini 2.5 Flash-Lite via `@google/generative-ai`, or OpenAI-compatible chat completions |
 | Testing | Vitest |
 | Deploy | Vercel (primary), Docker (self-hosted) |
 
 ## Config
 | Variable | Required | Default |
 |---|---|---|
-| `GEMINI_API_KEY` | Yes (hosted mode) | — |
+| `AI_PROVIDER` | No | `gemini` |
+| `GEMINI_API_KEY` | Yes (hosted mode, `AI_PROVIDER=gemini`) | — |
 | `GEMINI_MODEL` | No | `gemini-2.5-flash-lite` |
+| `OPENAI_API_KEY` | Yes (hosted mode, `AI_PROVIDER=openai`) | — |
+| `OPENAI_BASE_URL` | No | `https://api.openai.com/v1` |
+| `OPENAI_MODEL` | No | `gpt-4o-mini` |
 | `RATE_LIMIT_RPM` | No | `10` |

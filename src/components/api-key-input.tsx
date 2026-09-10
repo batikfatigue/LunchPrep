@@ -1,36 +1,65 @@
 "use client";
 
 /**
- * BYOK (Bring Your Own Key) Gemini API key input component.
+ * BYOK (Bring Your Own Key) AI provider settings component.
  *
- * Allows the user to enter and persist their Gemini API key in localStorage.
+ * Lets the user pick an AI provider (Gemini or an OpenAI-compatible
+ * endpoint) and persist their API key in localStorage. For OpenAI-compatible
+ * providers, optional base URL and model overrides are exposed so any
+ * endpoint implementing the chat completions API works (OpenAI, OpenRouter,
+ * Ollama, etc.).
+ *
  * Shows a toggle to reveal/hide the key and a badge when a key is active.
- * Calls setBYOKKey() from the categoriser client to keep localStorage in sync.
+ * Persists via the categoriser client helpers to keep localStorage in sync.
  */
 
 import * as React from "react";
 import { Eye, EyeOff, Key, X, Save } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { setBYOKKey } from "@/lib/categoriser/client";
+import {
+  setAIProvider,
+  setBYOKKey,
+  setOpenAIKey,
+  type AiProvider,
+} from "@/lib/categoriser/client";
+import {
+  DEFAULT_OPENAI_BASE_URL,
+  DEFAULT_OPENAI_MODEL,
+} from "@/lib/categoriser/openai";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
+/** All BYOK-related settings shown in this component. */
+export interface AiProviderSettings {
+  /** Selected provider. */
+  provider: AiProvider;
+  /** Saved Gemini API key ("" = unset). */
+  geminiKey: string;
+  /** Saved OpenAI-compatible API key ("" = unset). */
+  openaiKey: string;
+  /** Saved OpenAI-compatible base URL override ("" = default). */
+  openaiBaseUrl: string;
+  /** Saved OpenAI-compatible model override ("" = default). */
+  openaiModel: string;
+}
+
 export interface ApiKeyInputProps {
   /**
-   * Current API key value managed by the parent.
-   * Empty string means no key is set.
+   * Current provider settings managed by the parent (persisted via
+   * useLocalStorage). Empty strings mean unset.
    */
-  apiKey: string;
+  settings: AiProviderSettings;
   /**
-   * Callback fired when the user saves or clears the API key.
+   * Callback fired when the user changes any setting.
    *
-   * @param key - The new API key value (empty string means cleared).
+   * @param patch - Partial settings to merge into the parent's state.
    */
-  onApiKeyChange: (key: string) => void;
+  onSettingsChange: (patch: Partial<AiProviderSettings>) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -38,11 +67,11 @@ export interface ApiKeyInputProps {
 // ---------------------------------------------------------------------------
 
 /**
- * Input for the user's Gemini API key with show/hide toggle and active indicator.
+ * AI provider picker + API key input with show/hide toggle and active badge.
  *
  * @param props - See ApiKeyInputProps.
  */
-export function ApiKeyInput({ apiKey, onApiKeyChange }: ApiKeyInputProps) {
+export function ApiKeyInput({ settings, onSettingsChange }: ApiKeyInputProps) {
   const [inputValue, setInputValue] = React.useState("");
   const [showKey, setShowKey] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
@@ -51,26 +80,49 @@ export function ApiKeyInput({ apiKey, onApiKeyChange }: ApiKeyInputProps) {
     setMounted(true);
   }, []);
 
+  const { provider } = settings;
+  const isOpenAI = provider === "openai";
+
   // Defer to client-only to avoid SSR/client hydration mismatch
-  // (apiKey comes from localStorage which is unavailable during SSR).
-  const isActive = mounted && apiKey.trim().length > 0;
+  // (keys come from localStorage which is unavailable during SSR).
+  const activeKey = isOpenAI ? settings.openaiKey : settings.geminiKey;
+  const isActive = mounted && activeKey.trim().length > 0;
+
+  /** Switch provider and clear any in-progress key input. */
+  function handleProviderChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const next = e.target.value as AiProvider;
+    // Reason: setAIProvider writes to localStorage so the categoriser
+    // client can read it independently of component state.
+    setAIProvider(next);
+    onSettingsChange({ provider: next });
+    setInputValue("");
+    setShowKey(false);
+  }
 
   /** Persist the entered key to parent state and localStorage. */
   function handleSave() {
     const trimmed = inputValue.trim();
     if (!trimmed) return;
-    // Reason: setBYOKKey writes to localStorage so the categoriser
-    // client can read it independently of component state.
-    setBYOKKey(trimmed);
-    onApiKeyChange(trimmed);
+    if (isOpenAI) {
+      setOpenAIKey(trimmed);
+      onSettingsChange({ openaiKey: trimmed });
+    } else {
+      setBYOKKey(trimmed);
+      onSettingsChange({ geminiKey: trimmed });
+    }
     setInputValue("");
     setShowKey(false);
   }
 
   /** Remove the active key from state and localStorage. */
   function handleClear() {
-    setBYOKKey(null);
-    onApiKeyChange("");
+    if (isOpenAI) {
+      setOpenAIKey(null);
+      onSettingsChange({ openaiKey: "" });
+    } else {
+      setBYOKKey(null);
+      onSettingsChange({ geminiKey: "" });
+    }
     setInputValue("");
   }
 
@@ -78,13 +130,18 @@ export function ApiKeyInput({ apiKey, onApiKeyChange }: ApiKeyInputProps) {
     if (e.key === "Enter") handleSave();
   }
 
+  const keyLabel = isOpenAI ? "OpenAI-compatible API key" : "Gemini API key";
+  const keyPlaceholder = isOpenAI
+    ? "Enter API key (e.g. sk-…)…"
+    : "Enter Gemini API key…";
+
   return (
     <div className="flex flex-col gap-3">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Key className="size-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Gemini API Key</span>
+          <span className="text-sm font-medium">AI Provider</span>
         </div>
         {isActive && (
           <Badge variant="default" className="gap-1">
@@ -93,6 +150,20 @@ export function ApiKeyInput({ apiKey, onApiKeyChange }: ApiKeyInputProps) {
           </Badge>
         )}
       </div>
+
+      {/* Provider selector */}
+      <select
+        value={provider}
+        onChange={handleProviderChange}
+        className={cn(
+          "h-9 w-full rounded-md border bg-transparent px-2 text-sm",
+          "focus:outline-none focus:ring-2 focus:ring-ring",
+        )}
+        aria-label="AI provider"
+      >
+        <option value="gemini">Gemini (Google)</option>
+        <option value="openai">OpenAI-compatible</option>
+      </select>
 
       {isActive ? (
         /* Active state: show masked key and clear button */
@@ -117,7 +188,7 @@ export function ApiKeyInput({ apiKey, onApiKeyChange }: ApiKeyInputProps) {
           <div className="relative flex-1">
             <Input
               type={showKey ? "text" : "password"}
-              placeholder="Enter Gemini API key…"
+              placeholder={keyPlaceholder}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -125,7 +196,7 @@ export function ApiKeyInput({ apiKey, onApiKeyChange }: ApiKeyInputProps) {
               autoCorrect="off"
               spellCheck={false}
               className="pr-9"
-              aria-label="Gemini API key"
+              aria-label={keyLabel}
             />
             <button
               type="button"
@@ -153,9 +224,59 @@ export function ApiKeyInput({ apiKey, onApiKeyChange }: ApiKeyInputProps) {
         </div>
       )}
 
+      {/* OpenAI-compatible extras: endpoint + model overrides */}
+      {isOpenAI && (
+        <div className="flex flex-col gap-2">
+          <div>
+            <label
+              htmlFor="openai-base-url"
+              className="mb-1 block text-xs text-muted-foreground"
+            >
+              Base URL <span className="opacity-70">(optional)</span>
+            </label>
+            <Input
+              id="openai-base-url"
+              type="text"
+              placeholder={DEFAULT_OPENAI_BASE_URL}
+              value={settings.openaiBaseUrl}
+              onChange={(e) =>
+                onSettingsChange({ openaiBaseUrl: e.target.value })
+              }
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              className="h-9 font-mono text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="openai-model"
+              className="mb-1 block text-xs text-muted-foreground"
+            >
+              Model <span className="opacity-70">(optional)</span>
+            </label>
+            <Input
+              id="openai-model"
+              type="text"
+              placeholder={DEFAULT_OPENAI_MODEL}
+              value={settings.openaiModel}
+              onChange={(e) =>
+                onSettingsChange({ openaiModel: e.target.value })
+              }
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              className="h-9 font-mono text-sm"
+            />
+          </div>
+        </div>
+      )}
+
       <p className="text-xs text-muted-foreground">
         {isActive
-          ? "Your key is stored locally and sent directly to Gemini — bypassing the server proxy."
+          ? isOpenAI
+            ? "Your key is stored locally and sent directly to your OpenAI-compatible endpoint — bypassing the server proxy."
+            : "Your key is stored locally and sent directly to Gemini — bypassing the server proxy."
           : "Optional. Leave blank to use the shared server proxy."}
       </p>
     </div>
