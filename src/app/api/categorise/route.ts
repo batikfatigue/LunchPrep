@@ -12,6 +12,9 @@
  *
  * Features:
  * - IP-based rate limiting (default: 10 RPM, configurable via RATE_LIMIT_RPM)
+ * - Optional `byok` body field: per-request provider credentials relayed by
+ *   the client when a provider endpoint can't be reached from the browser
+ *   (e.g. no CORS headers); overrides the server env configuration
  * - Structured JSON output (Gemini responseSchema / OpenAI json_object mode)
  * - Returns { results: [{ index, category }] } on success
  * - Returns 429 with retryAfter on rate limit
@@ -37,10 +40,23 @@ interface TransactionInput {
   transactionType: string;
 }
 
+/**
+ * Per-request BYOK credentials relayed by the client when the provider
+ * endpoint could not be reached directly from the browser (e.g. it lacks
+ * CORS headers). Overrides the server-side env configuration.
+ */
+interface ByokRelay {
+  provider: "gemini" | "openai";
+  apiKey: string;
+  baseUrl?: string;
+  model?: string;
+}
+
 /** Expected request body shape. */
 interface CategorisationRequest {
   transactions: TransactionInput[];
   categories: string[];
+  byok?: ByokRelay;
 }
 
 /** A single categorisation result in the response. */
@@ -164,13 +180,38 @@ export async function POST(req: Request): Promise<Response> {
     );
   }
 
+  // Validate the optional BYOK relay: provider must be recognised and carry a
+  // non-empty key. Only apply it when every required field is present.
+  let byok: ByokRelay | null = null;
+  if (body.byok !== undefined) {
+    const b = body.byok;
+    const validProvider = b?.provider === "gemini" || b?.provider === "openai";
+    if (!validProvider || typeof b.apiKey !== "string" || !b.apiKey.trim()) {
+      return Response.json(
+        { error: "Invalid 'byok' relay: expected { provider, apiKey }" },
+        { status: 400 },
+      );
+    }
+    byok = {
+      provider: b.provider,
+      apiKey: b.apiKey,
+      baseUrl: typeof b.baseUrl === "string" ? b.baseUrl : undefined,
+      model: typeof b.model === "string" ? b.model : undefined,
+    };
+  }
+
   // Fast path: return empty results for empty input
   if (body.transactions.length === 0) {
     return Response.json({ results: [] }, { status: 200 });
   }
 
-  // 3. Select the AI provider (defaults to Gemini for backwards compatibility)
-  const provider = (process.env.AI_PROVIDER ?? "gemini").toLowerCase();
+  // 3. Select the AI provider. A relayed BYOK config wins over the server
+  // env (AI_PROVIDER defaults to Gemini for backwards compatibility).
+  const provider = (
+    byok?.provider ??
+    process.env.AI_PROVIDER ??
+    "gemini"
+  ).toLowerCase();
 
   // Build user prompt: send category list + transaction batch as one JSON block.
   // Identical for every provider — each adapter wraps it in its own wire format.
@@ -193,7 +234,7 @@ export async function POST(req: Request): Promise<Response> {
     let rawResults: MaybeReasonedResult[];
 
     if (provider === "openai") {
-      const apiKey = process.env.OPENAI_API_KEY;
+      const apiKey = byok?.apiKey ?? process.env.OPENAI_API_KEY;
       if (!apiKey) {
         console.error("[/api/categorise] OPENAI_API_KEY environment variable is not set");
         return Response.json(
@@ -203,11 +244,11 @@ export async function POST(req: Request): Promise<Response> {
       }
       rawResults = await callOpenAIChat(systemInstruction, userPrompt, {
         apiKey,
-        baseUrl: process.env.OPENAI_BASE_URL,
-        model: process.env.OPENAI_MODEL,
+        baseUrl: byok?.baseUrl ?? process.env.OPENAI_BASE_URL,
+        model: byok?.model ?? process.env.OPENAI_MODEL,
       });
     } else if (provider === "gemini") {
-      const apiKey = process.env.GEMINI_API_KEY;
+      const apiKey = byok?.apiKey ?? process.env.GEMINI_API_KEY;
       if (!apiKey) {
         console.error("[/api/categorise] GEMINI_API_KEY environment variable is not set");
         return Response.json(

@@ -168,6 +168,14 @@ export function parseCategorisationContent(content: string): OpenAIResultItem[] 
 // ---------------------------------------------------------------------------
 
 /**
+ * Thrown when the endpoint cannot be reached at all — DNS/TLS failure, CORS
+ * rejection, or mixed-content block — i.e. `fetch` rejected without producing
+ * an HTTP response. Distinct from HTTP errors so callers can fall back to a
+ * server-side relay (which has no CORS constraint).
+ */
+export class OpenAIEndpointUnreachableError extends Error {}
+
+/**
  * Normalise a user-supplied base URL for the chat completions call.
  *
  * Trims whitespace and trailing slashes, and drops a `/chat/completions`
@@ -210,7 +218,7 @@ async function postChatCompletions(
       body: JSON.stringify(body),
     });
   } catch (err) {
-    throw new Error(
+    throw new OpenAIEndpointUnreachableError(
       `Could not reach ${url} — check the base URL is correct and that ` +
         `the endpoint allows requests from this page (CORS / mixed content). ` +
         `(${err instanceof Error ? err.message : String(err)})`,

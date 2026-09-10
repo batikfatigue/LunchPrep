@@ -192,4 +192,84 @@ describe("callCategorise routing", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][0]).toBe("/api/categorise");
   });
+
+  it("relays an OpenAI BYOK call through the proxy when the endpoint is unreachable", async () => {
+    const fetchMock = vi
+      .fn()
+      // Direct call: fetch rejects before any HTTP response (CORS block).
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      // Relay: the server proxy answers.
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ results: [{ index: 0, category: "Dining" }] }),
+          { status: 200 },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await callCategorise(
+      [
+        {
+          date: "01 Jan 2026",
+          description: "Noodle House",
+          notes: "",
+          transactionCode: "POS",
+          amount: -10,
+        },
+      ],
+      DEFAULT_CATEGORIES,
+      {
+        provider: "openai",
+        apiKey: "sk-relay",
+        baseUrl: "https://blocked.example.com/v1",
+        model: "llama3",
+      },
+    );
+
+    expect(res.results).toEqual([{ index: 0, category: "Dining" }]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // First call went straight to the provider endpoint.
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://blocked.example.com/v1/chat/completions",
+    );
+    // Relay call hits the proxy carrying the BYOK credentials.
+    const [relayUrl, relayInit] = fetchMock.mock.calls[1] as [
+      string,
+      RequestInit,
+    ];
+    expect(relayUrl).toBe("/api/categorise");
+    const relayBody = JSON.parse(relayInit.body as string);
+    expect(relayBody.byok).toEqual({
+      provider: "openai",
+      apiKey: "sk-relay",
+      baseUrl: "https://blocked.example.com/v1",
+      model: "llama3",
+    });
+  });
+
+  it("does not relay on HTTP errors (e.g. 401) — the real message propagates", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: "bad key" }), { status: 401 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      callCategorise(
+        [
+          {
+            date: new Date("2026-01-01"),
+            description: "Noodle House",
+            originalDescription: "Noodle House",
+            amount: -10,
+            transactionCode: "POS",
+            notes: "",
+            originalPII: {},
+          },
+        ],
+        DEFAULT_CATEGORIES,
+        { provider: "openai", apiKey: "sk-bad" },
+      ),
+    ).rejects.toThrow("HTTP 401");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });
