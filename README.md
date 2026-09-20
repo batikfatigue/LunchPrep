@@ -39,6 +39,8 @@ In **Bring Your Own Key (BYOK)** mode, pick a provider and save your API key in 
 
 The responsive workspace includes category and AI preferences, light/dark/system themes, and confirmation before starting a new import. LunchPrep uses Lunch Money's [brand guidance](https://lunchmoney.dev/branding-your-app) and [media kit](https://lunchmoney.app/media-kit/) as design references, with the official Powered by Lunch Money badge. LunchPrep remains an independent community tool.
 
+LunchPrep's lunchbox-and-checkmark artwork appears in the workspace, browser favicon, and Apple touch icon. Next.js serves the icon assets from `src/app/icon.png`, `src/app/favicon.ico`, and `src/app/apple-icon.png`.
+
 ---
 
 ## Environment Variables

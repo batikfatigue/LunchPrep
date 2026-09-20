@@ -9,7 +9,6 @@ import {
   ChevronRight,
   FileUp,
   Github,
-  Layers2,
   LockKeyhole,
   Settings2,
   ShieldCheck,
@@ -312,9 +311,13 @@ export function AppShell({
 function Wordmark() {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-        <Layers2 className="size-5" strokeWidth={1.7} aria-hidden />
-      </span>
+      <Image
+        src="/icon.png"
+        alt=""
+        width={40}
+        height={40}
+        className="size-10 shrink-0 object-contain"
+      />
       <span className="text-xl font-bold tracking-[-0.7px]">
         lunchprep<span className="text-brand">.</span>
       </span>

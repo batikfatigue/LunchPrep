@@ -2,6 +2,7 @@
 
 ## Completed
 
+- [x] Supplied LunchPrep artwork used for the workspace identity, multi-size favicon, and Apple touch icon.
 - [x] Lunch Money-inspired brand system and responsive workspace; guided import/review/export with manual mode, safe sample statements, bulk category assignment, and confirmed resets.
 - [x] Pipeline sandbox — mock transaction input form in the pipeline inspector for testing edge cases (dev-tools-pipeline-sandbox)
 - [x] Consolidate categorisation debugger into pipeline inspector (reasoning, payload, annotations → API Result Panel)
