@@ -1,241 +1,168 @@
 "use client";
 
-/**
- * Export step: confirmation that the transactions are ready, a summary of
- * what will be exported, a pre-export checklist and the download action.
- */
-
-import * as React from "react";
 import {
+  ArrowLeft,
+  ArrowUpRight,
   Check,
   CircleAlert,
-  CircleCheck,
   Download,
-  Info,
-  RefreshCw,
+  FileCheck2,
+  FileText,
 } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { ResetImportButton } from "@/components/reset-import-button";
 import { formatCurrency } from "@/lib/review/status";
 
 export interface ExportStepProps {
-  /** Total number of transactions in the export. */
   total: number;
-  /** Number of confidently categorised transactions. */
   categorised: number;
-  /** Number still needing review (low-confidence or uncategorised). */
   needsReview: number;
-  /** Net amount across all transactions. */
   net: number;
-  /** Whether the CSV has already been downloaded in this session. */
   downloaded: boolean;
-  /** Generate and download the Lunch Money CSV. */
+  isDemo: boolean;
   onDownload: () => void;
-  /** Clear all state and return to the upload step. */
   onReset: () => void;
+  onBack: () => void;
 }
 
-/**
- * Render the export step.
- *
- * @param props - See ExportStepProps.
- */
+/** Download summary with a reversible review step and explicit import handoff. */
 export function ExportStep({
   total,
   categorised,
   needsReview,
   net,
   downloaded,
+  isDemo,
   onDownload,
   onReset,
+  onBack,
 }: ExportStepProps) {
   return (
-    <div className="flex flex-col gap-6">
-      {/* Success mark */}
-      <div className="flex flex-col items-center text-center">
-        <span className="flex size-16 items-center justify-center rounded-full bg-primary text-primary-foreground">
-          <Check className="size-8" strokeWidth={3} aria-hidden />
-        </span>
-        <h2 className="mt-4 text-2xl font-bold tracking-tight">
-          {downloaded ? "Export complete!" : "You're ready to export!"}
-        </h2>
-        <p className="mt-2 max-w-md text-sm text-muted-foreground">
-          {downloaded
-            ? "Your Lunch Money CSV has been downloaded. Import it from Settings → Import in Lunch Money."
-            : "Your transactions have been processed and are ready for import into Lunch Money."}
+    <div className="mx-auto max-w-3xl">
+      <p className="mb-3 text-[10px] font-bold tracking-[0.16em] text-primary">
+        THE FINISHING TOUCH
+      </p>
+      <h1
+        tabIndex={-1}
+        className="text-3xl font-semibold tracking-tight sm:text-4xl"
+      >
+        {downloaded
+          ? "A little less life admin."
+          : "Your next chapter, organised."}
+      </h1>
+      <p className="mt-3 text-sm leading-6 text-muted-foreground">
+        {downloaded
+          ? "Your download is ready. Take it over to Lunch Money to finish your import."
+          : "One last look, then your transactions are ready to take with you."}
+      </p>
+      {isDemo && (
+        <p
+          role="status"
+          className="mt-5 rounded-lg border border-amber-300/50 bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+        >
+          Sample statement · Fictional data for exploring LunchPrep. Don&apos;t
+          import it into your real budget.
         </p>
-      </div>
-
-      {/* Summary tiles */}
-      <div className="grid grid-cols-2 divide-y rounded-xl border sm:grid-cols-4 sm:divide-x sm:divide-y-0">
-        <StatTile value={String(total)} label="Total transactions" />
-        <StatTile
-          value={String(categorised)}
-          label="Categorised"
-          valueClassName="text-emerald-600 dark:text-emerald-400"
-        />
-        <StatTile
-          value={String(needsReview)}
-          label="Need review"
-          valueClassName={cn(needsReview > 0 && "text-amber-500")}
-        />
-        <StatTile value={formatCurrency(net)} label="Total (net)" />
-      </div>
-
-      {/* Pre-export checklist */}
-      <section className="rounded-xl border p-4">
-        <h3 className="text-sm font-semibold">Before you export</h3>
-        <ul className="mt-3 flex flex-col gap-3">
-          <ChecklistItem ok text="All transactions parsed successfully" />
-          <ChecklistItem ok text="Names and account numbers anonymised" />
-          <ChecklistItem ok text="Categories mapped to Lunch Money format" />
-          {needsReview > 0 ? (
-            <ChecklistItem
-              ok={false}
-              text={`${needsReview} transaction${needsReview === 1 ? "" : "s"} need your review`}
-              detail="Consider checking these before importing."
-            />
-          ) : (
-            <ChecklistItem ok text="Every transaction has a category" />
-          )}
-        </ul>
-      </section>
-
-      {/* Next steps */}
-      <section className="rounded-xl border p-4">
-        <h3 className="text-sm font-semibold">What happens next?</h3>
-        <ol className="mt-3 flex flex-col gap-3">
-          <NextStep
-            n={1}
-            title="Download your Lunch Money CSV"
-            detail="We'll generate a file in the correct format."
-          />
-          <NextStep
-            n={2}
-            title="Import into Lunch Money"
-            detail="Go to Settings → Import in Lunch Money and upload the file."
-          />
-          <NextStep
-            n={3}
-            title="Enjoy!"
-            detail="Your transactions will be imported and ready to go."
-          />
-        </ol>
-      </section>
-
-      {/* Actions */}
-      <div className="flex flex-col gap-3">
-        <Button size="lg" onClick={onDownload}>
-          <Download className="size-4" aria-hidden />
-          {downloaded ? "Download again" : "Download Lunch Money CSV"}
-        </Button>
-        <Button size="lg" variant="outline" onClick={onReset}>
-          <RefreshCw className="size-4" aria-hidden />
-          Start Over
-        </Button>
-      </div>
-
-      {/* Help */}
-      <div className="flex gap-3 rounded-xl border p-4 text-sm">
-        <Info className="mt-0.5 size-4 shrink-0 text-sky-500" aria-hidden />
-        <p>
-          <span className="font-medium">Need help? </span>
-          <span className="text-muted-foreground">
-            Check the{" "}
-            <a
-              href="https://github.com/batikfatigue/LunchPrep#readme"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline underline-offset-2 hover:text-foreground"
-            >
-              README
-            </a>{" "}
-            or open an issue on GitHub.
-          </span>
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/**
- * A single summary tile.
- *
- * @param props.value - Large value text.
- * @param props.label - Caption under the value.
- * @param props.valueClassName - Extra classes for the value.
- */
-function StatTile({
-  value,
-  label,
-  valueClassName,
-}: {
-  value: string;
-  label: string;
-  valueClassName?: string;
-}) {
-  return (
-    <div className="px-4 py-3">
-      <p className={cn("text-xl font-bold tabular-nums", valueClassName)}>{value}</p>
-      <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
-    </div>
-  );
-}
-
-/**
- * A checklist row with a pass/warn icon.
- *
- * @param props.ok - Whether the check passed.
- * @param props.text - Check description.
- * @param props.detail - Optional supporting line.
- */
-function ChecklistItem({
-  ok,
-  text,
-  detail,
-}: {
-  ok: boolean;
-  text: string;
-  detail?: string;
-}) {
-  return (
-    <li className="flex items-start gap-3 text-sm">
-      {ok ? (
-        <CircleCheck
-          className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400"
-          aria-hidden
-        />
-      ) : (
-        <CircleAlert className="mt-0.5 size-4 shrink-0 text-amber-500" aria-hidden />
       )}
-      <span>
-        {text}
-        {detail && (
-          <span className="mt-0.5 block text-xs text-muted-foreground">{detail}</span>
-        )}
-      </span>
-    </li>
-  );
-}
-
-/**
- * A numbered "what happens next" row.
- *
- * @param props.n - Step number.
- * @param props.title - Step title.
- * @param props.detail - Step description.
- */
-function NextStep({ n, title, detail }: { n: number; title: string; detail: string }) {
-  return (
-    <li className="flex items-start gap-3 text-sm">
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
-        {n}
-      </span>
-      <span>
-        <span className="font-medium">{title}</span>
-        <span className="mt-0.5 block text-xs text-muted-foreground">{detail}</span>
-      </span>
-    </li>
+      <section className="mt-7 overflow-hidden rounded-2xl border bg-card">
+        <div className="flex items-center gap-4 border-b p-6">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-accent text-primary">
+            <FileCheck2 className="size-6" aria-hidden />
+          </span>
+          <div>
+            <h2 className="font-semibold">
+              {isDemo ? "Sample CSV" : "Lunch Money CSV"}
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Dates, payees, amounts, categories and notes
+            </p>
+          </div>
+          <span className="ml-auto hidden rounded-full bg-accent px-3 py-1 text-xs text-primary sm:block">
+            {downloaded ? "Downloaded" : "Prepared"}
+          </span>
+        </div>
+        <dl className="grid grid-cols-2 gap-6 border-b p-6 sm:grid-cols-4">
+          {[
+            ["Transactions", String(total)],
+            ["Categorised", String(categorised)],
+            ["To review", String(needsReview)],
+            ["Net amount (SGD)", formatCurrency(net)],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <dt className="text-[11px] text-muted-foreground">{label}</dt>
+              <dd className="mt-2 text-xl font-semibold tabular-nums">
+                {value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <div className="p-6">
+          {needsReview > 0 ? (
+            <div className="mb-5 flex items-start gap-3 rounded-xl border border-amber-300/50 bg-amber-50 p-4 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+              <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <div className="text-sm">
+                <p className="font-medium">
+                  {needsReview} transaction{needsReview === 1 ? "" : "s"} still{" "}
+                  {needsReview === 1 ? "needs" : "need"} a look.
+                </p>
+                <p className="mt-1 text-xs leading-5">
+                  You can export now, or go back to check categories first.
+                </p>
+                <button
+                  onClick={onBack}
+                  className="mt-2 text-xs font-semibold underline underline-offset-4"
+                >
+                  Back to review
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="mb-5 flex items-center gap-2 text-xs text-primary">
+              <Check className="size-4" aria-hidden /> Every transaction has a
+              recognised category. Give the details a final check before
+              importing.
+            </p>
+          )}
+          <Button size="lg" className="w-full" onClick={onDownload}>
+            <Download className="size-4" aria-hidden />
+            {downloaded
+              ? "Download again"
+              : isDemo
+                ? "Download sample CSV"
+                : "Download Lunch Money CSV"}
+          </Button>
+          <p className="mt-3 text-center text-[11px] text-muted-foreground">
+            Your reviewed payees, notes, and categories are included in the
+            export.
+          </p>
+        </div>
+      </section>
+      <section className="mt-6 rounded-2xl border bg-accent/40 p-6">
+        <div className="flex items-center gap-2">
+          <FileText className="size-4 text-primary" aria-hidden />
+          <h2 className="text-sm font-semibold">
+            A home for your freshly prepared transactions.
+          </h2>
+        </div>
+        <p className="mt-2 text-xs leading-6 text-muted-foreground">
+          In Lunch Money, use the CSV import option, upload your downloaded
+          file, and check the column mappings before confirming.
+        </p>
+        <a
+          href="https://lunchmoney.app"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+        >
+          Open Lunch Money <ArrowUpRight className="size-3.5" aria-hidden />
+        </a>
+      </section>
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+        <Button variant="outline" onClick={onBack}>
+          <ArrowLeft className="size-4" aria-hidden /> Back to review
+        </Button>
+        <ResetImportButton onReset={onReset} />
+      </div>
+    </div>
   );
 }

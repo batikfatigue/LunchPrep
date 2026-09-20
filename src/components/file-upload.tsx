@@ -9,7 +9,7 @@
  */
 
 import * as React from "react";
-import { Upload, FileText, AlertCircle, Loader2 } from "lucide-react";
+import { Upload, FileText, AlertCircle, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -23,6 +23,8 @@ export interface FileUploadProps {
    * The parent is responsible for parsing and error handling.
    */
   onFileSelect: (file: File) => void;
+  onFileClear: () => void;
+  selectedFile: File | null;
   /** Whether a file is currently being processed. Disables all interactions. */
   isLoading?: boolean;
   /** Error message to display below the drop zone (e.g. invalid format). */
@@ -52,9 +54,14 @@ export function isCsvFile(file: File): boolean {
  *
  * @param props - See FileUploadProps.
  */
-export function FileUpload({ onFileSelect, isLoading = false, error }: FileUploadProps) {
+export function FileUpload({
+  onFileSelect,
+  onFileClear,
+  selectedFile,
+  isLoading = false,
+  error,
+}: FileUploadProps) {
   const [isDragOver, setIsDragOver] = React.useState(false);
-  const [selectedFileName, setSelectedFileName] = React.useState<string | null>(null);
   const [localError, setLocalError] = React.useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -64,11 +71,10 @@ export function FileUpload({ onFileSelect, isLoading = false, error }: FileUploa
   function processFile(file: File) {
     if (!isCsvFile(file)) {
       setLocalError("Please select a CSV file (.csv extension required).");
-      setSelectedFileName(null);
+      onFileClear();
       return;
     }
     setLocalError(null);
-    setSelectedFileName(file.name);
     onFileSelect(file);
   }
 
@@ -95,6 +101,11 @@ export function FileUpload({ onFileSelect, isLoading = false, error }: FileUploa
 
     if (isLoading) return;
 
+    if (e.dataTransfer.files.length > 1) {
+      setLocalError("Please upload one statement at a time.");
+      onFileClear();
+      return;
+    }
     const file = e.dataTransfer.files[0];
     if (!file) return;
     processFile(file);
@@ -121,28 +132,33 @@ export function FileUpload({ onFileSelect, isLoading = false, error }: FileUploa
   // ---------------------------------------------------------------------------
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="relative flex flex-col gap-3">
       {/* Drop zone */}
       <div
         role="button"
         tabIndex={isLoading ? -1 : 0}
         aria-label="Drop CSV file here or click to browse"
+        aria-disabled={isLoading}
+        aria-busy={isLoading}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={isLoading ? undefined : handlePickerClick}
         onKeyDown={(e) => {
           if (!isLoading && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
             handlePickerClick();
           }
         }}
         className={cn(
-          "flex min-h-44 cursor-pointer flex-col items-center justify-center gap-3",
-          "rounded-xl border-2 border-dashed p-8 text-center transition-colors",
+          "flex min-h-56 cursor-pointer flex-col items-center justify-center gap-4",
+          "rounded-xl border border-dashed p-6 text-center transition-colors",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           isDragOver && "border-primary bg-primary/5",
-          !isDragOver && !selectedFileName && "border-muted-foreground/30 bg-muted/20 hover:border-muted-foreground/50 hover:bg-muted/30",
-          selectedFileName && !isDragOver && "border-green-500/50 bg-green-50/50 dark:bg-green-950/20",
+          !isDragOver &&
+            !selectedFile &&
+            "border-primary/30 bg-accent/20 hover:border-primary/60 hover:bg-accent/50",
+          selectedFile && !isDragOver && "border-primary/40 bg-accent/50",
           isLoading && "cursor-not-allowed opacity-60",
         )}
       >
@@ -151,45 +167,52 @@ export function FileUpload({ onFileSelect, isLoading = false, error }: FileUploa
             <Loader2 className="size-10 animate-spin text-muted-foreground" />
             <p className="text-sm text-muted-foreground">Processing file…</p>
           </>
-        ) : selectedFileName ? (
+        ) : selectedFile ? (
           <>
-            <FileText className="size-10 text-green-600 dark:text-green-400" />
-            <div>
-              <p className="font-medium text-green-700 dark:text-green-300">
-                {selectedFileName}
+            <FileText className="size-10 text-primary" aria-hidden />
+            <div className="min-w-0 max-w-full" role="status">
+              <p className="break-all text-sm font-semibold text-primary">
+                {selectedFile.name}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Click to select a different file
+                {(selectedFile.size / 1024).toFixed(1)} KB · Ready to prepare
+              </p>
+              <p className="mt-3 text-xs text-primary underline underline-offset-4">
+                Choose a different file
               </p>
             </div>
           </>
         ) : (
           <>
-            <Upload className="size-8 text-muted-foreground" />
+            <span className="flex size-12 items-center justify-center rounded-xl border bg-card text-primary shadow-xs">
+              <Upload className="size-5" strokeWidth={1.5} aria-hidden />
+            </span>
             <div>
-              <p className="font-medium">Drop your DBS CSV file here</p>
-              <p className="mt-1 text-sm text-muted-foreground">or click to browse</p>
-              <p className="mt-3 text-xs text-muted-foreground/70">
-                Supports DBS iBanking CSV exports
+              <p className="text-sm font-semibold">Drop your statement here</p>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                or choose a file from your device
               </p>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="sr-only focus:not-sr-only"
-              onClick={(e) => {
-                // Reason: Stop propagation prevents the outer div's onClick
-                // from firing again when the button is clicked.
-                e.stopPropagation();
-                handlePickerClick();
-              }}
-            >
+            <span className="rounded-lg border bg-card px-4 py-2 text-xs font-semibold shadow-xs">
               Browse files
-            </Button>
+            </span>
           </>
         )}
       </div>
+      {selectedFile && !isLoading && (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Remove selected file"
+          className="absolute right-2 top-2"
+          onClick={() => {
+            setLocalError(null);
+            onFileClear();
+          }}
+        >
+          <X className="size-4" />
+        </Button>
+      )}
 
       {/* Hidden native file input */}
       <input

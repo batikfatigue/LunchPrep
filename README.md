@@ -25,15 +25,19 @@ LunchPrep helps you transform raw DBS bank CSV exports into a format ready for s
 
 ### Privacy First
 
-All CSV parsing and financial data processing happens **entirely in your browser** — no bank data is ever sent to or stored on the server. Before any AI categorisation call, real names and account numbers are replaced with realistic placeholders. Your original data is restored locally before export.
+CSV parsing happens **in your browser**, and the original file stays on your device. Before AI categorisation, names and account numbers are replaced with placeholders; the anonymised transaction details are sent to the selected AI provider. Shared AI uses the server proxy. Original values are restored locally before you review and export.
 
-You can also use **Bring Your Own Key (BYOK)** mode: pick a provider in the app settings and enter your personal API key to route AI calls directly from your browser to the provider, bypassing the shared server proxy entirely. The **OpenAI-compatible** option accepts a custom base URL and model, so any chat-completions endpoint works.
+In **Bring Your Own Key (BYOK)** mode, pick a provider and save your API key in settings. Requests go directly from your browser where possible; OpenAI-compatible endpoints that block browser access use a server relay. Keys and preferences are stored in this browser. The **OpenAI-compatible** option accepts a custom base URL and model. Choose **manual categorisation** to avoid AI requests entirely.
 
 ### How it works
 
-1. **Upload** — Export your DBS statement CSV from internet banking and drop it in.
-2. **Review** — AI categorises every transaction. Filter, search and sort the table, then edit payees, notes, or categories inline.
-3. **Export** — Download a Lunch Money-compatible CSV and import it in one click.
+1. **Upload** — Export your DBS / POSB statement CSV and drop it in. Choose shared AI, your own API key, or **manual categorisation** to keep the entire workflow in your browser.
+2. **Review** — Filter, search and sort transactions, edit payees and notes inline, and assign categories individually or to a selection. Completed reviews are saved on this device so you can resume later.
+3. **Export** — Check the summary, return to review if needed, then download a Lunch Money-compatible CSV. Upload it to Lunch Money and verify the column mappings before confirming the import.
+
+**Try before uploading:** the sample statement uses fictional transactions and makes no AI requests. It will not overwrite or clear a saved review. Sample downloads are for exploration, not for importing into your real budget.
+
+The responsive workspace includes category and AI preferences, light/dark/system themes, and confirmation before starting a new import. LunchPrep uses Lunch Money's [brand guidance](https://lunchmoney.dev/branding-your-app) and [media kit](https://lunchmoney.app/media-kit/) as design references, with the official Powered by Lunch Money badge. LunchPrep remains an independent community tool.
 
 ---
 

@@ -11,13 +11,14 @@
 
 import * as React from "react";
 import dynamic from "next/dynamic";
-import { ArrowRight, FileText, RefreshCw, Sparkles } from "lucide-react";
+import { ArrowRight, FileText, Sparkles } from "lucide-react";
 
 import { AppShell } from "@/components/app-shell";
 import { ExportStep } from "@/components/export/export-step";
-import { UploadStep } from "@/components/upload/upload-step";
+import { UploadStep, type ImportMode } from "@/components/upload/upload-step";
+import { ResumeBanner } from "@/components/upload/resume-banner";
+import { ResetImportButton } from "@/components/reset-import-button";
 import { type PipelineStep } from "@/components/pipeline-steps";
-import type { AiProviderSettings } from "@/components/api-key-input";
 import {
   TransactionTable,
   computeSummary,
@@ -25,22 +26,21 @@ import {
 } from "@/components/transaction-table";
 import { Button } from "@/components/ui/button";
 
-import { useLocalStorage } from "@/hooks/use-local-storage";
+import { useImportPreferences } from "@/hooks/use-import-preferences";
 import { useSessionPersistence } from "@/hooks/use-session-persistence";
 
 import { detectAndParse } from "@/lib/parsers/registry";
 import { anonymise, restore } from "@/lib/anonymiser/pii";
 import { callCategorise } from "@/lib/categoriser/client";
-import type {
-  AiProvider,
-  BYOKConfig,
-  DebugData,
-} from "@/lib/categoriser/client";
-import { DEFAULT_CATEGORIES } from "@/lib/categoriser/categories";
+import type { BYOKConfig, DebugData } from "@/lib/categoriser/client";
+import { createSampleStatement } from "@/lib/sample-statement";
 import { generateLunchMoneyCsv, downloadCsv } from "@/lib/exporter/lunchmoney";
 import { countByStatus } from "@/lib/review/status";
 import type { RawTransaction } from "@/lib/parsers/types";
-import type { PipelineSnapshot, GeminiSentEntry } from "@/lib/pipeline-snapshot"; // Dev-tools: pipeline-inspector
+import type {
+  PipelineSnapshot,
+  GeminiSentEntry,
+} from "@/lib/pipeline-snapshot"; // Dev-tools: pipeline-inspector
 
 // ---------------------------------------------------------------------------
 // Dev-only import: conditionally loaded, dead-code eliminated in production
@@ -54,50 +54,22 @@ const PipelineInspectorDevTool =
     ? dynamic(() => import("@/dev-tools/pipeline-inspector"))
     : null;
 
-// ---------------------------------------------------------------------------
-// Page component (default export required by Next.js)
-// ---------------------------------------------------------------------------
-
 /**
  * Main LunchPrep wizard page.
  *
  * @returns The full wizard UI as a React element.
  */
 export default function Home() {
-  // ---------------------------------------------------------------------------
-  // Persisted state (survives page refresh via localStorage)
-  // ---------------------------------------------------------------------------
-
-  const [categories, setCategories] = useLocalStorage<string[]>(
-    "lunchprep_categories",
-    DEFAULT_CATEGORIES,
-  );
-  const [provider, setProvider] = useLocalStorage<AiProvider>(
-    "lunchprep_ai_provider",
-    "gemini",
-  );
-  const [geminiKey, setGeminiKey] = useLocalStorage<string>(
-    "lunchprep_gemini_key",
-    "",
-  );
-  const [openaiKey, setOpenaiKey] = useLocalStorage<string>(
-    "lunchprep_openai_key",
-    "",
-  );
-  const [openaiBaseUrl, setOpenaiBaseUrl] = useLocalStorage<string>(
-    "lunchprep_openai_base_url",
-    "",
-  );
-  const [openaiModel, setOpenaiModel] = useLocalStorage<string>(
-    "lunchprep_openai_model",
-    "",
-  );
-
-  // ---------------------------------------------------------------------------
-  // Ephemeral state (resets on page refresh)
-  // ---------------------------------------------------------------------------
+  const {
+    categories,
+    setCategories,
+    byokConfig,
+    aiSettings,
+    onAiSettingsChange,
+  } = useImportPreferences();
 
   const [step, setStep] = React.useState<PipelineStep>("upload");
+  const [isDemo, setIsDemo] = React.useState(false);
   const [pendingFile, setPendingFile] = React.useState<File | null>(null);
   const [isParsing, setIsParsing] = React.useState(false);
   const [transactions, setTransactions] = React.useState<RawTransaction[]>([]);
@@ -106,8 +78,11 @@ export default function Home() {
   );
   // Dev-tools: pipeline-inspector — immutable snapshot of AI-assigned categories at categorisation time.
   // Reason: Keeps the API Result Panel showing the original AI output even after user edits categoryMap.
-  const [apiCategoryMap, setApiCategoryMap] = React.useState<ReadonlyMap<number, string>>(new Map());
-  const [catStatus, setCatStatus] = React.useState<CategorisationStatus>("idle");
+  const [apiCategoryMap, setApiCategoryMap] = React.useState<
+    ReadonlyMap<number, string>
+  >(new Map());
+  const [catStatus, setCatStatus] =
+    React.useState<CategorisationStatus>("idle");
   // Reason: Provider errors (HTTP status, unreachable host, unparseable JSON)
   // are surfaced in the review error banner so the user can tell why a BYOK
   // endpoint failed instead of seeing a generic failure message.
@@ -117,7 +92,7 @@ export default function Home() {
    * direct browser call. null = not yet chosen — the effective mode then
    * defaults to "byok" when a key exists for the selected provider.
    */
-  const [aiMode, setAiMode] = React.useState<"proxy" | "byok" | null>(null);
+  const [aiMode, setAiMode] = React.useState<ImportMode | null>(null);
   const [parseError, setParseError] = React.useState<string | null>(null);
   // Dev-mode only: debug data from the categorisation API (reasoning + raw payload).
   // Stays null in production since the API never returns debug data there.
@@ -131,43 +106,12 @@ export default function Home() {
   // Dev-tools: pipeline-inspector — index of the selected transaction row
   const [selectedIndex, setSelectedIndex] = React.useState<number | null>(null);
 
-  // ---------------------------------------------------------------------------
-  // Derived BYOK state
-  // ---------------------------------------------------------------------------
-
-  // Reason: Build the BYOK config once so both the real categorisation run
-  // and the dev-tools sandbox use identical provider settings. Explicit
-  // config wins over localStorage reads inside callCategorise.
-  const byokConfig: BYOKConfig | null =
-    provider === "openai"
-      ? openaiKey
-        ? {
-            provider: "openai",
-            apiKey: openaiKey,
-            baseUrl: openaiBaseUrl || undefined,
-            model: openaiModel || undefined,
-          }
-        : null
-      : geminiKey
-        ? { provider: "gemini", apiKey: geminiKey }
-        : null;
-
   // Reason: The upload-step radio is authoritative once touched; before that
   // it defaults to BYOK whenever the selected provider has a saved key.
-  const effectiveMode: "proxy" | "byok" =
-    aiMode ?? (byokConfig ? "byok" : "proxy");
+  const effectiveMode: ImportMode = aiMode ?? (byokConfig ? "byok" : "proxy");
   /** BYOK config gated by the selected mode — null forces the server proxy. */
   const effectiveByok: BYOKConfig | null =
     effectiveMode === "byok" ? byokConfig : null;
-
-  /** Current provider settings object passed to AppShell / UploadStep. */
-  const aiSettings: AiProviderSettings = {
-    provider,
-    geminiKey,
-    openaiKey,
-    openaiBaseUrl,
-    openaiModel,
-  };
 
   // ---------------------------------------------------------------------------
   // Session persistence
@@ -175,15 +119,15 @@ export default function Home() {
 
   // Reason: Only pass state to the hook when catStatus is "done" so we never
   // persist a partial or loading state. The hook handles the debounce internally.
-  const { savedSession, restore: restoreSession, discard } = useSessionPersistence(
-    catStatus === "done"
+  const {
+    savedSession,
+    restore: restoreSession,
+    discard,
+  } = useSessionPersistence(
+    catStatus === "done" && !isDemo && !downloaded
       ? { filename: csvFilename, transactions, categoryMap, catStatus }
       : null,
   );
-
-  // ---------------------------------------------------------------------------
-  // Handlers
-  // ---------------------------------------------------------------------------
 
   /**
    * Remember the chosen CSV. Parsing is deferred until the user continues.
@@ -201,17 +145,31 @@ export default function Home() {
    */
   async function handleContinueToReview() {
     if (!pendingFile) return;
+    if (effectiveMode === "byok" && !byokConfig) {
+      setParseError(
+        "Save your API key before continuing, or choose another categorisation mode.",
+      );
+      return;
+    }
     setParseError(null);
     setIsParsing(true);
     try {
       const text = await pendingFile.text();
       const txs = detectAndParse(text);
+      if (txs.length === 0)
+        throw new Error(
+          "No transactions found. Choose a statement with transactions and try again.",
+        );
+      setIsDemo(false);
       setTransactions(txs);
       setCategoryMap(new Map());
       setApiCategoryMap(new Map());
       setStep("review");
-      // Auto-trigger categorisation immediately after parse.
-      void triggerCategorise(txs);
+      if (effectiveMode === "manual") {
+        setCatStatus("done");
+      } else {
+        void triggerCategorise(txs);
+      }
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to parse the file.";
@@ -219,6 +177,20 @@ export default function Home() {
     } finally {
       setIsParsing(false);
     }
+  }
+
+  /** Explore fictional transactions without touching a saved review or calling AI. */
+  function handleTrySample() {
+    const sample = createSampleStatement();
+    setIsDemo(true);
+    setTransactions(sample.transactions);
+    setCategoryMap(sample.categoryMap);
+    setApiCategoryMap(new Map(sample.categoryMap));
+    setCsvFilename("sample-statement.csv");
+    setDownloaded(false);
+    setCatError(null);
+    setCatStatus("done");
+    setStep("review");
   }
 
   /**
@@ -292,7 +264,7 @@ export default function Home() {
     downloadCsv(csv);
     setDownloaded(true);
     // Reason: Clear session on export — workflow is complete, no need to resume.
-    discard();
+    if (!isDemo) discard();
   }
 
   /**
@@ -313,7 +285,8 @@ export default function Home() {
     setSnapshots({}); // Dev-tools: pipeline-inspector
     setSelectedIndex(null); // Dev-tools: pipeline-inspector
     // Reason: Clear session on reset — user is starting over.
-    discard();
+    if (!isDemo) discard();
+    setIsDemo(false);
     setStep("upload");
   }
 
@@ -356,34 +329,12 @@ export default function Home() {
   }
 
   /**
-   * Persist updated categories via localStorage (synced by useLocalStorage hook).
-   *
-   * @param updated - Updated category list.
-   */
-  function handleCategoriesChange(updated: string[]) {
-    setCategories(updated);
-  }
-
-  /**
-   * Apply a partial update to the AI provider settings (persisted via
-   * the individual useLocalStorage hooks).
-   *
-   * @param patch - Subset of settings to update.
-   */
-  function handleAiSettingsChange(patch: Partial<AiProviderSettings>) {
-    if (patch.provider !== undefined) setProvider(patch.provider);
-    if (patch.geminiKey !== undefined) setGeminiKey(patch.geminiKey);
-    if (patch.openaiKey !== undefined) setOpenaiKey(patch.openaiKey);
-    if (patch.openaiBaseUrl !== undefined) setOpenaiBaseUrl(patch.openaiBaseUrl);
-    if (patch.openaiModel !== undefined) setOpenaiModel(patch.openaiModel);
-  }
-
-  /**
    * Resume a saved session: hydrate state and jump to the review step.
    */
   function handleResume() {
     const restored = restoreSession();
     if (!restored) return;
+    setIsDemo(false);
     if (savedSession) setCsvFilename(savedSession.meta.filename);
     setTransactions(restored.transactions);
     setCategoryMap(restored.categoryMap);
@@ -399,58 +350,40 @@ export default function Home() {
   const statusCounts = countByStatus(transactions, categoryMap, categories);
   const summary = computeSummary(transactions);
 
-  // Reason: Date.now() is not allowed during render, so the clock used for the
-  // resume banner's relative time is captured once the page has mounted.
-  const [now, setNow] = React.useState<number | null>(null);
-  React.useEffect(() => {
-    setNow(Date.now());
-  }, [savedSession]);
-
   return (
     <AppShell
       currentStep={step}
       aiSettings={aiSettings}
-      onAiSettingsChange={handleAiSettingsChange}
+      onAiSettingsChange={onAiSettingsChange}
       categories={categories}
-      onCategoriesChange={handleCategoriesChange}
+      onCategoriesChange={setCategories}
     >
       {/* ----------------------------------------------------------------- */}
       {/* Step: Upload                                                        */}
       {/* ----------------------------------------------------------------- */}
       {step === "upload" && (
         <div className="flex flex-col gap-6">
-          {/* Resume banner — shown when a saved session exists in localStorage */}
           {savedSession && (
-            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 dark:border-sky-900 dark:bg-sky-950/40">
-              <FileText className="size-4 shrink-0 text-sky-600 dark:text-sky-400" />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-sky-900 dark:text-sky-100">
-                  Resume unfinished review
-                </p>
-                <p className="mt-0.5 truncate text-xs text-sky-700 dark:text-sky-300">
-                  {savedSession.meta.filename} &middot; {savedSession.meta.txnCount} transaction{savedSession.meta.txnCount !== 1 ? "s" : ""}
-                  {now !== null && ` · ${formatRelativeTime(savedSession.meta.savedAt, now)}`}
-                </p>
-              </div>
-              <div className="flex shrink-0 gap-2">
-                <Button size="sm" onClick={handleResume}>
-                  Resume
-                </Button>
-                <Button size="sm" variant="ghost" onClick={discard}>
-                  Discard
-                </Button>
-              </div>
-            </div>
+            <ResumeBanner
+              session={savedSession}
+              onResume={handleResume}
+              onDiscard={discard}
+            />
           )}
 
           <UploadStep
             onFileSelect={handleFileSelect}
-            hasFile={pendingFile !== null}
+            selectedFile={pendingFile}
+            onFileClear={() => {
+              setPendingFile(null);
+              setParseError(null);
+            }}
             isLoading={isParsing}
             error={parseError}
             onContinue={handleContinueToReview}
+            onTrySample={handleTrySample}
             aiSettings={aiSettings}
-            onAiSettingsChange={handleAiSettingsChange}
+            onAiSettingsChange={onAiSettingsChange}
             mode={effectiveMode}
             onModeChange={setAiMode}
           />
@@ -461,7 +394,21 @@ export default function Home() {
       {/* Step: Review                                                        */}
       {/* ----------------------------------------------------------------- */}
       {step === "review" && (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-5">
+          {isDemo && (
+            <p
+              role="status"
+              className="rounded-lg border border-amber-300/50 bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+            >
+              You&apos;re exploring a sample. All transactions are fictional,
+              and your saved review stays untouched.
+            </p>
+          )}
+          <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+            <FileText className="size-3.5 shrink-0" aria-hidden />
+            <span className="truncate">{csvFilename}</span>
+            <span className="ml-auto shrink-0">SGD</span>
+          </p>
           <TransactionTable
             transactions={transactions}
             categories={categories}
@@ -490,27 +437,28 @@ export default function Home() {
           )}
 
           {/* Step actions */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Button variant="ghost" size="sm" onClick={handleReset}>
-              <RefreshCw className="size-4" />
-              Start Over
-            </Button>
-            <div className="flex gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4">
+            <ResetImportButton
+              onReset={handleReset}
+              disabled={catStatus === "loading"}
+            />
+            <div className="flex flex-wrap gap-2">
+              {!isDemo && effectiveMode !== "manual" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => triggerCategorise()}
+                  disabled={catStatus === "loading"}
+                >
+                  <Sparkles className="size-4" />
+                  {catStatus === "loading" ? "Categorising…" : "Re-categorise"}
+                </Button>
+              )}
               <Button
-                variant="outline"
-                size="sm"
-                onClick={() => triggerCategorise()}
-                disabled={catStatus === "loading"}
-              >
-                <Sparkles className="size-4" />
-                {catStatus === "loading" ? "Categorising…" : "Re-categorise"}
-              </Button>
-              <Button
-                size="sm"
                 onClick={() => setStep("export")}
                 disabled={catStatus === "loading" || transactions.length === 0}
               >
-                Continue to Export
+                Continue to export
                 <ArrowRight className="size-4" />
               </Button>
             </div>
@@ -525,32 +473,20 @@ export default function Home() {
         <ExportStep
           total={transactions.length}
           categorised={statusCounts.categorised}
-          needsReview={statusCounts["needs-review"] + statusCounts.uncategorised}
+          needsReview={
+            statusCounts["needs-review"] + statusCounts.uncategorised
+          }
           net={summary.net}
           downloaded={downloaded}
+          isDemo={isDemo}
           onDownload={handleDownload}
           onReset={handleReset}
+          onBack={() => {
+            setDownloaded(false);
+            setStep("review");
+          }}
         />
       )}
     </AppShell>
   );
-}
-
-/**
- * Format a saved-at ISO string as a human-readable relative time,
- * e.g. "2 hours ago", "just now", "3 days ago".
- *
- * @param savedAt - ISO 8601 timestamp string.
- * @param now - Reference timestamp in epoch milliseconds.
- * @returns Human-readable relative time string.
- */
-function formatRelativeTime(savedAt: string, now: number): string {
-  const diffMs = now - new Date(savedAt).getTime();
-  const diffMins = Math.floor(diffMs / 60_000);
-  if (diffMins < 1) return "just now";
-  if (diffMins < 60) return `${diffMins} minute${diffMins === 1 ? "" : "s"} ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
 }

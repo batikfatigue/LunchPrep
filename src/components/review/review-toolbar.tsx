@@ -6,7 +6,7 @@
  */
 
 import * as React from "react";
-import { Search } from "lucide-react";
+import { CheckCircle2, CircleDashed, ListFilter, Search } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { ReviewFilter, StatusCounts } from "@/lib/review/status";
@@ -55,70 +55,102 @@ export function ReviewToolbar({
   searchRef,
 }: ReviewToolbarProps) {
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight">
-            Review your transactions
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Check and edit the AI-categorised transactions before exporting.
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="font-semibold">
-            {counts.all} transaction{counts.all === 1 ? "" : "s"}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {counts.categorised} categorised &middot;{" "}
-            {counts["needs-review"] + counts.uncategorised} to review
-          </p>
-        </div>
+    <div className="flex flex-col gap-6">
+      <div>
+        <p className="mb-3 text-[10px] font-bold tracking-[0.16em] text-primary">
+          A PLACE FOR EVERY TRANSACTION
+        </p>
+        <h1
+          tabIndex={-1}
+          className="text-3xl font-semibold tracking-tight sm:text-4xl"
+        >
+          The details, made clear.
+        </h1>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          Check your transactions, fine-tune the categories, and make them
+          yours.
+        </p>
       </div>
 
-      {/* Filter chips */}
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Filter transactions">
-        {CHIPS.map((chip) => {
-          const isActive = filter === chip.id;
-          return (
-            <button
-              key={chip.id}
-              type="button"
-              aria-pressed={isActive}
-              onClick={() => onFilterChange(chip.id)}
-              className={cn(
-                "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                isActive
-                  ? ACTIVE_CHIP[chip.id]
-                  : "border-border text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-              )}
-            >
-              {chip.label}
-              <span className="tabular-nums opacity-70">{counts[chip.id]}</span>
-            </button>
-          );
-        })}
-      </div>
+      <dl className="grid grid-cols-3 gap-3">
+        {[
+          { label: "Transactions", value: counts.all, icon: ListFilter },
+          {
+            label: "Categorised",
+            value: counts.categorised,
+            icon: CheckCircle2,
+          },
+          {
+            label: "To review",
+            value: counts["needs-review"] + counts.uncategorised,
+            icon: CircleDashed,
+          },
+        ].map(({ label, value, icon: Icon }) => (
+          <div key={label} className="rounded-xl border bg-card p-3 sm:p-5">
+            <dt className="flex items-center justify-between gap-1 text-[10px] text-muted-foreground sm:text-xs">
+              {label}
+              <Icon
+                className="hidden size-4 text-primary sm:block"
+                aria-hidden
+              />
+            </dt>
+            <dd className="mt-2 text-2xl font-semibold tabular-nums">
+              {value}
+            </dd>
+          </div>
+        ))}
+      </dl>
 
-      {/* Search */}
-      <div className="relative">
-        <Search
-          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-          aria-hidden
-        />
-        <input
-          ref={searchRef}
-          type="search"
-          value={query}
-          onChange={(e) => onQueryChange(e.target.value)}
-          placeholder="Search payee, description, or amount…"
-          aria-label="Search transactions"
-          className={cn(
-            "h-9 w-full rounded-lg border bg-background pl-9 pr-3 text-sm outline-none",
-            "placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
-          )}
-        />
+      <div className="flex flex-col justify-between gap-4 2xl:flex-row 2xl:items-center">
+        <div
+          className="flex flex-wrap gap-2"
+          role="group"
+          aria-label="Filter transactions"
+        >
+          {CHIPS.map((chip) => {
+            const isActive = filter === chip.id;
+            return (
+              <button
+                key={chip.id}
+                type="button"
+                aria-pressed={isActive}
+                onClick={() => onFilterChange(chip.id)}
+                className={cn(
+                  "inline-flex min-h-9 items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  isActive
+                    ? ACTIVE_CHIP[chip.id]
+                    : "border-border text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                )}
+              >
+                {chip.label}
+                <span className="tabular-nums opacity-70">
+                  {counts[chip.id]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Search */}
+        <div className="relative 2xl:w-72">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <input
+            ref={searchRef}
+            type="search"
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+            placeholder="Search payee, description, or amount…"
+            aria-label="Search transactions"
+            className={cn(
+              "h-10 w-full rounded-lg border bg-card pl-9 pr-3 text-sm outline-none",
+              "placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+            )}
+          />
+        </div>
       </div>
     </div>
   );

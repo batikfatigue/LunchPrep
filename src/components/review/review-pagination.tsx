@@ -62,7 +62,11 @@ export function buildPageItems(
  *
  * @param props - See ReviewPaginationProps.
  */
-export function ReviewPagination({ page, totalPages, onPageChange }: ReviewPaginationProps) {
+export function ReviewPagination({
+  page,
+  totalPages,
+  onPageChange,
+}: ReviewPaginationProps) {
   const items = buildPageItems(page, totalPages);
 
   return (
@@ -88,7 +92,7 @@ export function ReviewPagination({ page, totalPages, onPageChange }: ReviewPagin
             aria-current={item === page ? "page" : undefined}
             onClick={() => onPageChange(item)}
             className={cn(
-              "size-7 rounded-md text-sm tabular-nums transition-colors",
+              "size-9 rounded-md text-sm tabular-nums transition-colors",
               item === page
                 ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -136,8 +140,10 @@ function ArrowButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "inline-flex size-7 items-center justify-center rounded-md border text-muted-foreground transition-colors",
-        disabled ? "cursor-not-allowed opacity-40" : "hover:bg-accent hover:text-foreground",
+        "inline-flex size-9 items-center justify-center rounded-md border text-muted-foreground transition-colors",
+        disabled
+          ? "cursor-not-allowed opacity-40"
+          : "hover:bg-accent hover:text-foreground",
       )}
     >
       {children}

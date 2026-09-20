@@ -20,9 +20,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "LunchPrep",
+  title: "LunchPrep — A little prep. A lot more clarity.",
   description:
-    "Convert Singapore bank CSVs into Lunch Money imports with Gemini AI categorisation.",
+    "Turn DBS bank statements into organised, ready-to-import transactions for Lunch Money. Private CSV processing, AI categorisation, and a review that puts you in control.",
 };
 
 /**
@@ -65,4 +65,3 @@ export default function RootLayout({
     </html>
   );
 }
-
