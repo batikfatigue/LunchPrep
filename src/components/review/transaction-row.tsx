@@ -10,7 +10,12 @@
 
 import * as React from "react";
 import { Select } from "radix-ui";
-import { CheckCircle2, ChevronDown, CircleAlert, CircleDashed } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronDown,
+  CircleAlert,
+  CircleDashed,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -115,7 +120,10 @@ export function EditableCell({
         startEdit();
       }}
       onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") startEdit();
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          startEdit();
+        }
       }}
       title="Click to edit"
       className={cn(
@@ -211,12 +219,12 @@ export function TransactionRow({
       </td>
 
       {/* Date */}
-      <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">
+      <td className="whitespace-nowrap px-3 py-3 text-xs text-muted-foreground">
         {formatTableDate(transaction.date)}
       </td>
 
       {/* Payee + notes */}
-      <td className="px-3 py-2 font-medium">
+      <td className="min-w-48 px-3 py-3 font-medium">
         {onPayeeChange ? (
           <EditableCell
             value={transaction.description}
@@ -256,7 +264,10 @@ export function TransactionRow({
               needsReview={needsReview && !!selectedCategory}
               className="border-transparent bg-transparent dark:bg-transparent"
             />
-            <ChevronDown className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+            <ChevronDown
+              className="size-3 shrink-0 text-muted-foreground"
+              aria-hidden
+            />
           </Select.Trigger>
 
           <Select.Portal>
@@ -288,7 +299,9 @@ export function TransactionRow({
       <td
         className={cn(
           "whitespace-nowrap px-3 py-2 text-right tabular-nums",
-          isDebit ? "text-foreground" : "text-emerald-600 dark:text-emerald-400",
+          isDebit
+            ? "text-foreground"
+            : "text-emerald-600 dark:text-emerald-400",
         )}
       >
         {formatAmount(transaction.amount)}
@@ -312,7 +325,7 @@ function ReviewStatusIcon({ status }: { status: ReviewStatus }) {
     return (
       <CheckCircle2
         className="size-4 text-emerald-600 dark:text-emerald-400"
-        aria-label="Categorised with high confidence"
+        aria-label="Categorised"
       />
     );
   }

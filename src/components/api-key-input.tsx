@@ -72,6 +72,7 @@ export interface ApiKeyInputProps {
  * @param props - See ApiKeyInputProps.
  */
 export function ApiKeyInput({ settings, onSettingsChange }: ApiKeyInputProps) {
+  const id = React.useId();
   const [inputValue, setInputValue] = React.useState("");
   const [showKey, setShowKey] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
@@ -229,13 +230,13 @@ export function ApiKeyInput({ settings, onSettingsChange }: ApiKeyInputProps) {
         <div className="flex flex-col gap-2">
           <div>
             <label
-              htmlFor="openai-base-url"
+              htmlFor={`${id}-base-url`}
               className="mb-1 block text-xs text-muted-foreground"
             >
               Base URL <span className="opacity-70">(optional)</span>
             </label>
             <Input
-              id="openai-base-url"
+              id={`${id}-base-url`}
               type="text"
               placeholder={DEFAULT_OPENAI_BASE_URL}
               value={settings.openaiBaseUrl}
@@ -250,13 +251,13 @@ export function ApiKeyInput({ settings, onSettingsChange }: ApiKeyInputProps) {
           </div>
           <div>
             <label
-              htmlFor="openai-model"
+              htmlFor={`${id}-model`}
               className="mb-1 block text-xs text-muted-foreground"
             >
               Model <span className="opacity-70">(optional)</span>
             </label>
             <Input
-              id="openai-model"
+              id={`${id}-model`}
               type="text"
               placeholder={DEFAULT_OPENAI_MODEL}
               value={settings.openaiModel}

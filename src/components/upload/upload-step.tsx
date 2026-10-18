@@ -1,18 +1,17 @@
 "use client";
 
-/**
- * Upload step: hero, CSV drop zone, format selector, privacy note and the
- * AI categorisation mode choice.
- *
- * The parent owns the selected file and the BYOK key; this component only
- * arranges the controls and gates the "Continue to Review" action until a
- * file has been chosen.
- */
-
-import * as React from "react";
-import { RadioGroup, Select } from "radix-ui";
-import { ArrowRight, ChevronDown, HelpCircle, Lock, Sparkles } from "lucide-react";
-
+import { RadioGroup } from "radix-ui";
+import {
+  ArrowRight,
+  ArrowUpRight,
+  Check,
+  ChevronDown,
+  FileCheck2,
+  FileText,
+  LockKeyhole,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
 import {
   ApiKeyInput,
   type AiProviderSettings,
@@ -20,213 +19,283 @@ import {
 import { FileUpload } from "@/components/file-upload";
 import { LandingHero } from "@/components/landing-hero";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
-/** CSV formats offered in the selector. Detection itself is automatic. */
-const CSV_FORMATS = [
-  { value: "dbs-ibanking-personal", label: "DBS iBanking (Personal)" },
-] as const;
+export type ImportMode = "proxy" | "byok" | "manual";
 
 export interface UploadStepProps {
-  /** Called when the user picks or drops a CSV file. */
   onFileSelect: (file: File) => void;
-  /** Whether a file is currently selected and ready to parse. */
-  hasFile: boolean;
-  /** Whether parsing is in flight. */
+  onFileClear: () => void;
+  selectedFile: File | null;
   isLoading: boolean;
-  /** Parse error to surface under the drop zone. */
   error: string | null;
-  /** Advance to the review step (parses the selected file). */
   onContinue: () => void;
-  /** Current BYOK provider settings (provider + keys + overrides). */
+  onTrySample: () => void;
   aiSettings: AiProviderSettings;
-  /** Called when the user changes any AI provider setting. */
   onAiSettingsChange: (patch: Partial<AiProviderSettings>) => void;
-  /**
-   * AI categorisation routing. "proxy" calls the server /api/categorise route;
-   * "byok" calls the provider directly from the browser with the saved key.
-   */
-  mode: "proxy" | "byok";
-  /** Called when the user switches between proxy and BYOK mode. */
-  onModeChange: (mode: "proxy" | "byok") => void;
+  mode: ImportMode;
+  onModeChange: (mode: ImportMode) => void;
 }
 
-/**
- * Render the upload step.
- *
- * @param props - See UploadStepProps.
- */
+/** A focused import form with progressive AI settings and contextual help. */
 export function UploadStep({
   onFileSelect,
-  hasFile,
+  onFileClear,
+  selectedFile,
   isLoading,
   error,
   onContinue,
+  onTrySample,
   aiSettings,
   onAiSettingsChange,
   mode,
   onModeChange,
 }: UploadStepProps) {
-  const [format, setFormat] = React.useState<string>(CSV_FORMATS[0].value);
+  const hasKey = Boolean(
+    (aiSettings.provider === "openai"
+      ? aiSettings.openaiKey
+      : aiSettings.geminiKey
+    ).trim(),
+  );
+  const needsKey = mode === "byok" && !hasKey;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       <LandingHero />
-
-      <FileUpload onFileSelect={onFileSelect} isLoading={isLoading} error={error} />
-
-      {/* CSV format */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-1.5">
-          <label htmlFor="csv-format" className="text-sm font-medium">
-            Select your CSV format
-          </label>
-          <span
-            title="LunchPrep auto-detects the format from the file's headers. This selector shows which exports are supported."
-            className="text-muted-foreground"
-          >
-            <HelpCircle className="size-3.5" aria-hidden />
-            <span className="sr-only">
-              LunchPrep auto-detects the format from the file&apos;s headers.
-            </span>
-          </span>
-        </div>
-        <Select.Root value={format} onValueChange={setFormat}>
-          <Select.Trigger
-            id="csv-format"
-            className={cn(
-              "flex h-10 w-full items-center justify-between rounded-lg border bg-background px-3 text-sm",
-              "focus:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
-            )}
-            aria-label="CSV format"
-          >
-            <Select.Value />
-            <ChevronDown className="size-4 text-muted-foreground" aria-hidden />
-          </Select.Trigger>
-          <Select.Portal>
-            <Select.Content
-              position="popper"
-              sideOffset={4}
-              className="z-50 w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border bg-popover shadow-md"
-            >
-              <Select.Viewport>
-                {CSV_FORMATS.map((f) => (
-                  <Select.Item
-                    key={f.value}
-                    value={f.value}
-                    className="cursor-pointer px-3 py-2 text-sm outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground"
-                  >
-                    <Select.ItemText>{f.label}</Select.ItemText>
-                  </Select.Item>
-                ))}
-              </Select.Viewport>
-            </Select.Content>
-          </Select.Portal>
-        </Select.Root>
-      </div>
-
-      {/* Privacy */}
-      <section className="flex gap-3 rounded-xl border p-4">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
-          <Lock className="size-4" aria-hidden />
-        </span>
-        <div className="text-sm">
-          <p className="font-medium">Privacy first</p>
-          <p className="mt-1 text-muted-foreground">
-            Your data stays in your browser. Names and account numbers are
-            anonymised before AI categorisation.
-          </p>
-          <a
-            href="https://github.com/batikfatigue/LunchPrep#privacy"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-          >
-            Learn more
-            <ArrowRight className="size-3" aria-hidden />
-          </a>
-        </div>
-      </section>
-
-      {/* AI categorisation mode */}
-      <section className="flex gap-3 rounded-xl border p-4">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <Sparkles className="size-4" aria-hidden />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium">AI categorisation</p>
-          <RadioGroup.Root
-            value={mode}
-            onValueChange={(value) => onModeChange(value as "proxy" | "byok")}
-            className="mt-3 flex flex-col gap-3"
-          >
-            <ModeOption
-              value="proxy"
-              title="Use shared proxy (default)"
-              description="Anonymised data is sent to our proxy server for categorisation."
-            />
-            <ModeOption
-              value="byok"
-              title="Bring your own API key (BYOK)"
-              description="Send requests directly to your AI provider from your browser."
-            />
-          </RadioGroup.Root>
-
-          {mode === "byok" && (
-            <div className="mt-4 border-t pt-4">
-              <ApiKeyInput
-                settings={aiSettings}
-                onSettingsChange={onAiSettingsChange}
-              />
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+        <section
+          aria-labelledby="upload-title"
+          className="min-w-0 overflow-hidden rounded-2xl border bg-card shadow-[0_2px_8px_0_#253d3a03]"
+        >
+          <div className="border-b px-5 py-5 sm:px-6">
+            <div className="flex items-center justify-between gap-2">
+              <h2
+                id="upload-title"
+                className="text-lg font-semibold tracking-tight"
+              >
+                Import a statement
+              </h2>
+              <span className="rounded-md bg-muted px-2 py-1 text-[10px] font-medium text-muted-foreground">
+                CSV files
+              </span>
             </div>
-          )}
-        </div>
-      </section>
-
-      <Button size="lg" disabled={!hasFile || isLoading} onClick={onContinue}>
-        {isLoading ? "Parsing…" : "Continue to Review"}
-        <ArrowRight className="size-4" aria-hidden />
-      </Button>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Start with a fresh export from your bank.
+            </p>
+          </div>
+          <div className="space-y-5 p-5 sm:p-6">
+            <div className="flex items-center gap-3 rounded-lg border px-4 py-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-red-50 text-[11px] font-bold text-red-700 dark:bg-red-950/40 dark:text-red-300">
+                DBS
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">DBS / POSB</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  Personal banking · CSV statement
+                </p>
+              </div>
+              <span className="flex items-center gap-1 text-[10px] text-primary">
+                <Check className="size-3" aria-hidden /> Supported
+              </span>
+            </div>
+            <FileUpload
+              onFileSelect={onFileSelect}
+              onFileClear={onFileClear}
+              selectedFile={selectedFile}
+              isLoading={isLoading}
+              error={error}
+            />
+            <details className="group rounded-lg border bg-background/60">
+              <summary className="flex items-center gap-2.5 rounded-lg p-3.5 text-xs">
+                <Sparkles className="size-4 text-primary" aria-hidden />
+                <span className="font-semibold">Categorisation</span>
+                <span className="ml-auto text-muted-foreground">
+                  {mode === "proxy"
+                    ? "Shared AI"
+                    : mode === "manual"
+                      ? "Manual"
+                      : "Your API key"}
+                </span>
+                <ChevronDown
+                  className="size-3.5 text-muted-foreground transition-transform group-open:rotate-180"
+                  aria-hidden
+                />
+              </summary>
+              <div className="border-t p-4">
+                <RadioGroup.Root
+                  aria-label="Categorisation mode"
+                  value={mode}
+                  onValueChange={(value: ImportMode) => onModeChange(value)}
+                  className="space-y-4"
+                >
+                  <ModeOption
+                    value="proxy"
+                    title="Use shared AI"
+                    description="Send anonymised transaction details through our server to the configured AI provider."
+                  />
+                  <ModeOption
+                    value="byok"
+                    title="Use my own API key"
+                    description="Choose Gemini or an OpenAI-compatible provider. A server relay may be used if needed."
+                  />
+                  <ModeOption
+                    value="manual"
+                    title="I'll categorise myself"
+                    description="Skip AI. Review and assign categories entirely in your browser."
+                  />
+                </RadioGroup.Root>
+                {mode === "byok" && (
+                  <div className="mt-5 border-t pt-4">
+                    <ApiKeyInput
+                      settings={aiSettings}
+                      onSettingsChange={onAiSettingsChange}
+                    />
+                  </div>
+                )}
+              </div>
+            </details>
+            {needsKey && (
+              <p
+                role="status"
+                className="text-xs text-amber-800 dark:text-amber-300"
+              >
+                Add and save your API key under Categorisation to continue.
+              </p>
+            )}
+            <Button
+              className="w-full"
+              size="lg"
+              disabled={!selectedFile || isLoading || needsKey}
+              onClick={onContinue}
+            >
+              {isLoading ? "Preparing your statement…" : "Continue to review"}
+              <ArrowRight className="size-4" aria-hidden />
+            </Button>
+            <p className="flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground">
+              <LockKeyhole className="size-3" aria-hidden /> Your original CSV
+              is processed on this device.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 border-t bg-background/70 px-5 py-4 text-xs">
+            <span className="text-muted-foreground">Just looking around?</span>
+            <button
+              type="button"
+              onClick={onTrySample}
+              disabled={isLoading}
+              className="inline-flex items-center gap-1 font-semibold text-primary hover:underline disabled:opacity-50"
+            >
+              Try a sample statement{" "}
+              <ArrowUpRight className="size-3" aria-hidden />
+            </button>
+          </div>
+        </section>
+        <aside className="space-y-5">
+          <section className="rounded-2xl border bg-card p-5">
+            <span className="mb-4 flex size-9 items-center justify-center rounded-xl bg-[#fff3c4] text-[#805d00] dark:bg-amber-950 dark:text-amber-300">
+              <Sparkles className="size-4" aria-hidden />
+            </span>
+            <h2 className="text-sm font-semibold">From statement to sorted.</h2>
+            <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
+              Three small steps. One tidier budget.
+            </p>
+            <ol className="mt-5 space-y-5">
+              <GuideStep
+                icon={FileText}
+                title="Upload your CSV"
+                detail="We clean up the bank's formatting."
+              />
+              <GuideStep
+                icon={Sparkles}
+                title="Make it yours"
+                detail="Review payees and suggested categories."
+              />
+              <GuideStep
+                icon={FileCheck2}
+                title="Ready for Lunch Money"
+                detail="Download a clean, compatible CSV."
+              />
+            </ol>
+          </section>
+          <section className="rounded-2xl border border-primary/15 bg-accent/70 p-5">
+            <div className="flex items-center gap-2 text-primary">
+              <ShieldCheck className="size-4" aria-hidden />
+              <h2 className="text-sm font-semibold">
+                A little privacy goes a long way.
+              </h2>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-muted-foreground">
+              Your CSV stays on your device. Identifying details are masked
+              before AI requests. Reviews are saved in this browser so you can
+              pick up later.
+            </p>
+          </section>
+          <details className="group px-1 text-xs">
+            <summary className="flex items-center justify-between gap-2 rounded-md py-1 font-medium text-muted-foreground">
+              Where do I find my CSV?
+              <ChevronDown
+                className="size-3.5 shrink-0 group-open:rotate-180"
+                aria-hidden
+              />
+            </summary>
+            <p className="mt-2 leading-5 text-muted-foreground">
+              In DBS / POSB internet banking, open your account&apos;s
+              transaction history, choose a date range, and export as CSV. PDF
+              statements aren&apos;t supported.
+            </p>
+          </details>
+        </aside>
+      </div>
     </div>
   );
 }
 
-/**
- * One radio option in the AI categorisation card.
- *
- * @param props.value - Radio value.
- * @param props.title - Option title.
- * @param props.description - Supporting copy.
- */
 function ModeOption({
   value,
   title,
   description,
 }: {
-  value: string;
+  value: ImportMode;
   title: string;
   description: string;
 }) {
-  const id = `ai-mode-${value}`;
   return (
     <div className="flex items-start gap-3">
       <RadioGroup.Item
-        id={id}
+        id={`mode-${value}`}
         value={value}
-        className={cn(
-          "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border border-input bg-background",
-          "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
-          "data-[state=checked]:border-primary data-[state=checked]:bg-primary",
-        )}
+        className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border border-input bg-card data-[state=checked]:border-primary data-[state=checked]:bg-primary"
       >
         <RadioGroup.Indicator className="size-1.5 rounded-full bg-primary-foreground" />
       </RadioGroup.Item>
-      <label htmlFor={id} className="cursor-pointer text-sm">
-        <span className="font-medium">{title}</span>
-        <span className="mt-0.5 block text-xs text-muted-foreground">
+      <label htmlFor={`mode-${value}`} className="cursor-pointer text-xs">
+        <span className="font-semibold">{title}</span>
+        <span className="mt-1 block leading-5 text-muted-foreground">
           {description}
         </span>
       </label>
     </div>
+  );
+}
+
+function GuideStep({
+  icon: Icon,
+  title,
+  detail,
+}: {
+  icon: typeof FileText;
+  title: string;
+  detail: string;
+}) {
+  return (
+    <li className="flex gap-3">
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-background text-muted-foreground">
+        <Icon className="size-3.5" aria-hidden />
+      </span>
+      <div>
+        <p className="text-xs font-semibold">{title}</p>
+        <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+          {detail}
+        </p>
+      </div>
+    </li>
   );
 }

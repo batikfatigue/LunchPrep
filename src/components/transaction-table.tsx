@@ -20,6 +20,7 @@ import { ArrowDown, ArrowUp, Lightbulb, Loader2, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
 import { ReviewPagination } from "@/components/review/review-pagination";
 import { ReviewToolbar } from "@/components/review/review-toolbar";
 import { TransactionRow } from "@/components/review/transaction-row";
@@ -134,7 +135,10 @@ export function computeSummary(transactions: RawTransaction[]): {
  * @param pageSize - Number of items per page.
  * @returns Total number of pages (minimum 1).
  */
-export function computeTotalPages(totalItems: number, pageSize: number): number {
+export function computeTotalPages(
+  totalItems: number,
+  pageSize: number,
+): number {
   return Math.max(1, Math.ceil(totalItems / pageSize));
 }
 
@@ -173,9 +177,12 @@ export function TransactionTable({
 }: TransactionTableProps) {
   const [filter, setFilter] = React.useState<ReviewFilter>("all");
   const [query, setQuery] = React.useState("");
+  const [bulkCategory, setBulkCategory] = React.useState("");
   const [sort, setSort] = React.useState<SortDirection>("asc");
   const [currentPage, setCurrentPage] = React.useState(0);
-  const [checkedRows, setCheckedRows] = React.useState<ReadonlySet<number>>(new Set());
+  const [checkedRows, setCheckedRows] = React.useState<ReadonlySet<number>>(
+    new Set(),
+  );
   const [tipDismissed, setTipDismissed] = React.useState(false);
 
   const searchRef = React.useRef<HTMLInputElement>(null);
@@ -202,7 +209,10 @@ export function TransactionTable({
   const safePage = clampPage(currentPage, totalPages);
   if (safePage !== currentPage) setCurrentPage(safePage);
 
-  const pageRows = visible.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+  const pageRows = visible.slice(
+    safePage * PAGE_SIZE,
+    (safePage + 1) * PAGE_SIZE,
+  );
 
   // Reset paging when the result set changes underneath the user.
   React.useEffect(() => {
@@ -226,7 +236,8 @@ export function TransactionTable({
 
   const pageIndices = pageRows.map((row) => row.index);
   const checkedOnPage = pageIndices.filter((i) => checkedRows.has(i)).length;
-  const allChecked = pageIndices.length > 0 && checkedOnPage === pageIndices.length;
+  const allChecked =
+    pageIndices.length > 0 && checkedOnPage === pageIndices.length;
   const headerChecked: boolean | "indeterminate" = allChecked
     ? true
     : checkedOnPage > 0
@@ -275,11 +286,60 @@ export function TransactionTable({
         searchRef={searchRef}
       />
 
-      <div className="relative overflow-hidden rounded-xl border">
+      {checkedRows.size > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-primary/20 bg-accent p-3">
+          <span className="text-xs font-semibold">
+            {checkedRows.size} selected
+          </span>
+          <select
+            aria-label="Category for selected transactions"
+            value={bulkCategory}
+            onChange={(event) => setBulkCategory(event.target.value)}
+            disabled={status === "loading"}
+            className="h-9 min-w-0 rounded-lg border bg-card px-3 text-xs"
+          >
+            <option value="">Choose a category…</option>
+            {categories.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </select>
+          <Button
+            size="sm"
+            disabled={
+              !categories.includes(bulkCategory) || status === "loading"
+            }
+            onClick={() => {
+              checkedRows.forEach((index) =>
+                onCategoryChange(index, bulkCategory),
+              );
+              setCheckedRows(new Set());
+              setBulkCategory("");
+            }}
+          >
+            Apply to selected
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setCheckedRows(new Set())}
+          >
+            Clear selection
+          </Button>
+        </div>
+      )}
+      <div
+        className="relative overflow-hidden rounded-xl border bg-card"
+        aria-busy={status === "loading"}
+      >
         {/* Loading overlay — shown while AI categorisation is in-flight */}
         {status === "loading" && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div
+              role="status"
+              className="flex items-center gap-2 text-sm text-muted-foreground"
+            >
               <Loader2 className="size-4 animate-spin" />
               <span>Categorising transactions…</span>
             </div>
@@ -288,9 +348,12 @@ export function TransactionTable({
 
         {/* Error banner — manual editing remains possible */}
         {status === "error" && (
-          <div className="border-b border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            AI categorisation failed. You can assign categories manually using the
-            dropdowns below.
+          <div
+            role="alert"
+            className="border-b border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+          >
+            AI categorisation failed. You can assign categories manually using
+            the dropdowns below.
             {errorDetail && (
               <span className="mt-1 block break-all font-mono text-xs opacity-80">
                 {errorDetail}
@@ -299,21 +362,32 @@ export function TransactionTable({
           </div>
         )}
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto" inert={status === "loading"}>
+          <table className="w-full min-w-[640px] text-sm">
+            <caption className="sr-only">
+              Statement transactions. Edit payees, notes, and categories before
+              exporting.
+            </caption>
             <thead>
               <tr className="border-b bg-muted/40 text-left text-xs font-medium text-muted-foreground">
                 <th className="w-10 px-3 py-2">
                   <Checkbox
                     checked={headerChecked}
-                    onCheckedChange={(value) => handleAllChecked(value === true)}
+                    onCheckedChange={(value) =>
+                      handleAllChecked(value === true)
+                    }
                     aria-label="Select all transactions on this page"
                   />
                 </th>
-                <th className="px-3 py-2">
+                <th
+                  className="px-3 py-3"
+                  aria-sort={sort === "asc" ? "ascending" : "descending"}
+                >
                   <button
                     type="button"
-                    onClick={() => setSort((s) => (s === "asc" ? "desc" : "asc"))}
+                    onClick={() =>
+                      setSort((s) => (s === "asc" ? "desc" : "asc"))
+                    }
                     className="inline-flex items-center gap-1 hover:text-foreground"
                     aria-label={`Sort by date, currently ${sort === "asc" ? "ascending" : "descending"}`}
                   >
@@ -328,7 +402,7 @@ export function TransactionTable({
                 <th className="px-3 py-2">Payee / Description</th>
                 <th className="px-3 py-2">Category</th>
                 <th className="px-3 py-2 text-right">Amount</th>
-                <th className="px-3 py-2">AI</th>
+                <th className="px-3 py-2">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -368,7 +442,9 @@ export function TransactionTable({
         {/* Selection count + pagination */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3">
           <p className="text-xs text-muted-foreground">
-            {checkedRows.size} selected
+            {visible.length === 0
+              ? "0 transactions"
+              : `${safePage * PAGE_SIZE + 1}–${Math.min((safePage + 1) * PAGE_SIZE, visible.length)} of ${visible.length} transactions`}
           </p>
           <ReviewPagination
             page={safePage}
@@ -380,13 +456,16 @@ export function TransactionTable({
 
       {/* Keyboard tip */}
       {!tipDismissed && (
-        <div className="flex items-start gap-3 rounded-xl border bg-muted/30 px-4 py-3">
-          <Lightbulb className="mt-0.5 size-4 shrink-0 text-amber-500" aria-hidden />
+        <div className="flex items-start gap-3 rounded-xl bg-accent/40 px-4 py-3">
+          <Lightbulb
+            className="mt-0.5 size-4 shrink-0 text-amber-500"
+            aria-hidden
+          />
           <div className="min-w-0 flex-1 text-xs">
             <p className="font-medium">Tip: Use shortcuts</p>
             <p className="mt-0.5 text-muted-foreground">
-              Press <kbd className="rounded border px-1">/</kbd> to search. Click any
-              payee, note or category to edit it inline.
+              Press <kbd className="rounded border px-1">/</kbd> to search.
+              Click any payee, note or category to edit it inline.
             </p>
           </div>
           <button
