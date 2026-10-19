@@ -16,7 +16,7 @@ describe("Notice", () => {
     render(<Notice tone="warning">Check your key.</Notice>);
     const status = screen.getByRole("status");
     expect(status.getAttribute("data-tone")).toBe("warning");
-    expect(status.className).toContain("bg-cta/30");
+    expect(status.className).toContain("border-foreground/60");
   });
 
   it("merges custom classes and hides its icon from assistive tech", () => {

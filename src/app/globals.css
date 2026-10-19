@@ -4,37 +4,23 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Quiet Editorial tokens. See DESIGN.md for the full rationale.
+   next/font variables live on <html>, so these resolve everywhere. */
 @theme inline {
+  --font-sans: var(--font-inter-tight), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-inter-tight), ui-sans-serif, system-ui, sans-serif;
+  --font-mono:
+    var(--font-jetbrains), ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+    Consolas, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-bricolage), var(--font-geist), ui-sans-serif,
-    system-ui, sans-serif;
-  --font-mono:
-    var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo,
-    Consolas, monospace;
-  --color-brand: #3a8579;
-  --color-sunshine: var(--cta);
-  /* Lunchbox language: ink outlines, flat fills, hard offset shadows. */
-  --color-ink: var(--ink-line);
-  --color-cta: var(--cta);
-  --color-cta-foreground: var(--cta-foreground);
-  --shadow-hard-sm: 2px 2px 0 0 var(--shadow-color);
-  --shadow-hard: 3px 3px 0 0 var(--shadow-color);
-  --shadow-hard-lg: 6px 6px 0 0 var(--shadow-color);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
+  --color-ink: var(--foreground);
+  --color-ink-soft: var(--muted-foreground);
+  --color-ink-mute: var(--ink-mute);
+  --color-paper-sunken: var(--muted);
+  --color-marker: var(--marker);
+  --color-ok: var(--ok);
+  --color-marker-foreground: var(--marker-ink);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -51,96 +37,65 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
 }
 
 :root {
-  /*
-   * Shape rule: cards use rounded-xl, controls use rounded-md, chips and
-   * status badges are full pills. Nothing else.
-   */
-  --radius: 0.875rem;
-  --ink-line: #16201e;
-  --shadow-color: #16201e;
-  --cta: #fbb700;
-  --cta-foreground: #16201e;
-  /* Cool paper canvas so white cards and ink outlines carry the structure. */
-  --background: #f1f4f2;
-  --foreground: #16201e;
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.21 0.01 160);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.21 0.01 160);
-  --primary: #1f6f66;
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: #edf3ef;
-  --secondary-foreground: oklch(0.24 0.02 162);
-  --muted: oklch(0.968 0.003 95);
-  --muted-foreground: #55655f;
-  --accent: #e3eeea;
-  --accent-foreground: oklch(0.33 0.05 162);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: #dbe2de;
-  --input: #b9c6bf;
-  --ring: oklch(0.55 0.075 162);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --radius: 0.5rem;
+  --ease-quiet: cubic-bezier(0.22, 1, 0.36, 1);
+  --background: #f4f2ee;
+  --foreground: #171614;
+  --card: #ffffff;
+  --card-foreground: #171614;
+  --popover: #ffffff;
+  --popover-foreground: #171614;
+  --primary: #171614;
+  --primary-foreground: #f4f2ee;
+  --secondary: #eae8e3;
+  --secondary-foreground: #171614;
+  --muted: #eae8e3;
+  --muted-foreground: #4a4845;
+  --ink-mute: #6b6863;
+  --accent: #eae8e3;
+  --accent-foreground: #171614;
+  --destructive: #a3321f;
+  --border: #dcd9d3;
+  --input: #b4b0a8;
+  --ring: #171614;
+  /* Marker: the one brand accent. Only ever a highlighter pass behind
+     text LunchPrep prepared. Gold nods to Lunch Money's coin, no copy. */
+  --marker: #f6d54a;
+  --marker-ink: #171614;
+  /* Teal lifted from the supplied logo's check badge: "done / ok" status. */
+  --ok: #2c6f63;
 }
 
 .dark {
-  /* Dark outlines are light so the chunky edges still read; shadows lift. */
-  --ink-line: #9fb2a9;
-  --shadow-color: #2b3833;
-  --cta: #fbb700;
-  --cta-foreground: #16201e;
-  --background: oklch(0.17 0.008 160);
-  --foreground: oklch(0.975 0.004 120);
-  --card: oklch(0.225 0.009 160);
-  --card-foreground: oklch(0.975 0.004 120);
-  --popover: oklch(0.225 0.009 160);
-  --popover-foreground: oklch(0.975 0.004 120);
-  --primary: oklch(0.63 0.12 162);
-  --primary-foreground: oklch(0.16 0.02 162);
-  --secondary: oklch(0.28 0.012 160);
-  --secondary-foreground: oklch(0.975 0.004 120);
-  --muted: oklch(0.28 0.012 160);
-  --muted-foreground: oklch(0.72 0.012 140);
-  --accent: oklch(0.31 0.03 162);
-  --accent-foreground: oklch(0.95 0.02 162);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.63 0.09 162);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #212121;
+  --foreground: #f2f0eb;
+  --card: #2a2a2a;
+  --card-foreground: #f2f0eb;
+  --popover: #2a2a2a;
+  --popover-foreground: #f2f0eb;
+  --primary: #f2f0eb;
+  --primary-foreground: #212121;
+  --secondary: #171717;
+  --secondary-foreground: #f2f0eb;
+  --muted: #171717;
+  --muted-foreground: #c8c5bf;
+  --ink-mute: #99968f;
+  --accent: #333333;
+  --accent-foreground: #f2f0eb;
+  --destructive: #f08a78;
+  --border: #3c3c3c;
+  --input: #5a5a5a;
+  --ring: #f2f0eb;
+  --marker: #f0cf45;
+  --marker-ink: #171614;
+  --ok: #6fc4b2;
 }
 
 @layer base {
@@ -148,22 +103,37 @@
     @apply border-border outline-ring/50;
   }
 
+  /* Fallback header heights before hydration; ScrollLink overwrites --header-h
+     with the measured height so native jumps land exactly under the header. */
+  :root {
+    --header-h: 6.75rem;
+  }
+  @media (min-width: 768px) {
+    :root {
+      --header-h: 4.25rem;
+    }
+  }
+  html {
+    scroll-padding-top: var(--header-h);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
   body {
     @apply bg-background font-sans text-foreground;
+    font-size: 1rem;
+    line-height: 1.55;
     font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
   }
 
   h1,
   h2,
   h3 {
-    font-family: var(--font-display);
-    letter-spacing: -0.02em;
-  }
-
-  /* Money and counts line up in columns. */
-  .tabular {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
+    font-weight: 400;
   }
 
   button,
@@ -180,8 +150,16 @@
     cursor: pointer;
   }
 
+  summary {
+    list-style: none;
+  }
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
   ::selection {
-    @apply bg-primary/20;
+    background: var(--marker);
+    color: var(--marker-ink);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -189,12 +167,12 @@
     *::before,
     *::after {
       animation-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
   }
 
-  /* Hide number input spinners */
   input[type="number"]::-webkit-inner-spin-button,
   input[type="number"]::-webkit-outer-spin-button {
     -webkit-appearance: none;
@@ -204,5 +182,206 @@
   input[type="number"] {
     -moz-appearance: textfield;
     appearance: none;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Editorial vocabulary                                                     */
+/* ---------------------------------------------------------------------- */
+@layer components {
+  /* Display: the dominant visual. Regular weight, tight tracking. */
+  .display {
+    font-size: clamp(2.5rem, 7vw, 6.25rem);
+    line-height: 0.98;
+    letter-spacing: -0.045em;
+    font-weight: 400;
+    text-wrap: balance;
+  }
+
+  /* Statement: the one big sentence per section. */
+  .statement {
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    line-height: 1.04;
+    letter-spacing: -0.035em;
+    font-weight: 400;
+    text-wrap: balance;
+  }
+
+  /* Workbench override: the one emphasised phrase per headline is set in
+     mono with a marker underline, like a symbol picked out in an editor. */
+  .display em,
+  .statement em {
+    font-family: var(--font-mono);
+    font-style: normal;
+    font-weight: 500;
+    letter-spacing: -0.06em;
+    background: linear-gradient(var(--marker), var(--marker)) 0 92% / 100% 0.14em
+      no-repeat;
+  }
+
+  /* Import section only: the emphasised phrase is a full highlighter pass
+     (ink on gold) instead of the underline, so the section has a clear entry point. */
+  .statement em.em-fill {
+    background: var(--marker);
+    color: var(--marker-ink);
+    padding: 0 0.12em;
+    border-radius: 2px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+
+  /* Insertion point on the drop zone: shown only while it is focused or a file is
+     being dragged over it. Blinks three times, then rests solid. Never loops. */
+  .caret {
+    display: none;
+    width: 2px;
+    height: 1em;
+    margin-left: 0.15em;
+    vertical-align: -0.12em;
+    background: var(--ok);
+  }
+  .dropzone:focus-visible .caret,
+  .dropzone[data-drag="true"] .caret {
+    display: inline-block;
+    animation: caret-blink 1s steps(1) 3 both;
+  }
+
+  .numeral {
+    font-size: clamp(2rem, 3.6vw, 3.25rem);
+    line-height: 1;
+    letter-spacing: -0.04em;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Micro label. */
+  .label {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    line-height: 1.4;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+
+  /* Money and counts line up in columns. */
+  .tabular {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
+  /* Tertiary action: an underlined link. */
+  .link-quiet {
+    text-decoration: underline;
+    text-decoration-color: var(--input);
+    text-underline-offset: 5px;
+    text-decoration-thickness: 1px;
+    transition: text-decoration-color 180ms var(--ease-quiet);
+  }
+  .link-quiet:hover {
+    text-decoration-color: var(--foreground);
+  }
+
+  /* Highlighter pass: marks what LunchPrep prepared. Always ink on gold. */
+  .marker {
+    background: var(--marker);
+    color: var(--marker-ink);
+    padding: 0.04em 0.28em;
+    border-radius: 2px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+
+  /* Rise-in: 450ms, transform and opacity only. */
+  .rise {
+    animation: rise 450ms var(--ease-quiet) both;
+    animation-delay: calc(var(--i, 0) * 70ms);
+  }
+
+  /* Marker pass: the highlighter wipes across once, left to right, so the
+     eye sees what LunchPrep rewrote. Ends on the static marker. */
+  .marker-wipe {
+    background-image: linear-gradient(var(--marker), var(--marker));
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    animation: marker-wipe 600ms var(--ease-quiet) both;
+    animation-delay: calc(500ms + var(--i, 0) * 120ms);
+  }
+
+  /* Editor pane: hairline frame, mono chrome, no shadow. */
+  .pane {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    overflow: hidden;
+  }
+  .pane-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--muted);
+    padding: 0.625rem 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+  }
+  .pane-status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.25rem;
+    border-top: 1px solid var(--border);
+    background: var(--muted);
+    padding: 0.5rem 1rem;
+  }
+  /* Line-number gutter. */
+  .gutter {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--ink-mute);
+    font-variant-numeric: tabular-nums;
+    user-select: none;
+  }
+
+  /* Arrival feedback for in-page anchors: works without JS via :target. */
+  #import:target #import-label {
+    background: var(--marker);
+    color: var(--marker-ink);
+    border-radius: 2px;
+    padding: 0.04em 0.4em;
+    transition: background-color 300ms var(--ease-quiet);
+  }
+}
+
+@keyframes marker-wipe {
+  from {
+    background-size: 0% 100%;
+  }
+  to {
+    background-size: 100% 100%;
+  }
+}
+
+@keyframes caret-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes busy-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }

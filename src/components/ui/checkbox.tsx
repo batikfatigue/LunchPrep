@@ -18,11 +18,11 @@ function Checkbox({
     <CheckboxPrimitive.Root
       data-slot="checkbox"
       className={cn(
-        "peer size-[18px] shrink-0 rounded-[5px] border-2 border-ink bg-card transition-shadow outline-none",
-        "focus-visible:shadow-hard-sm",
+        "peer size-[18px] shrink-0 rounded-[3px] border border-input bg-card transition-colors outline-none",
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
         "disabled:cursor-not-allowed disabled:opacity-50",
-        "data-[state=checked]:bg-cta data-[state=checked]:text-cta-foreground",
-        "data-[state=indeterminate]:bg-cta data-[state=indeterminate]:text-cta-foreground",
+        "data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground",
+        "data-[state=indeterminate]:border-primary data-[state=indeterminate]:bg-primary data-[state=indeterminate]:text-primary-foreground",
         className,
       )}
       {...props}
