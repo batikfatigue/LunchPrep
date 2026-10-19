@@ -2,6 +2,7 @@
 
 ## Completed
 
+- [x] Complete design revamp ("lunchbox" language): new tokens (`--ink-line`, `--cta`, hard shadows), Bricolage Grotesque + Geist type, top-bar shell replacing the sidebar, two-column landing with the lunchbox artwork, restyled upload/review/export, shared `Notice`, new tests for `Notice`, `PipelineSteps` and `AppShell`.
 - [x] Supplied LunchPrep artwork used for the workspace identity, multi-size favicon, and Apple touch icon.
 - [x] Lunch Money-inspired brand system and responsive workspace; guided import/review/export with manual mode, safe sample statements, bulk category assignment, and confirmed resets.
 - [x] Pipeline sandbox — mock transaction input form in the pipeline inspector for testing edge cases (dev-tools-pipeline-sandbox)

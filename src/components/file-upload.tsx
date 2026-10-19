@@ -152,13 +152,15 @@ export function FileUpload({
         }}
         className={cn(
           "flex min-h-56 cursor-pointer flex-col items-center justify-center gap-4",
-          "rounded-xl border border-dashed p-6 text-center transition-colors",
+          "rounded-xl border-2 border-dashed p-6 text-center transition-[background-color,transform]",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          isDragOver && "border-primary bg-primary/5",
+          isDragOver && "scale-[1.01] border-ink bg-cta/25",
           !isDragOver &&
             !selectedFile &&
-            "border-primary/30 bg-accent/20 hover:border-primary/60 hover:bg-accent/50",
-          selectedFile && !isDragOver && "border-primary/40 bg-accent/50",
+            "border-ink/60 bg-background hover:border-ink hover:bg-cta/10",
+          selectedFile &&
+            !isDragOver &&
+            "border-solid border-ink bg-card shadow-hard-sm",
           isLoading && "cursor-not-allowed opacity-60",
         )}
       >
@@ -175,7 +177,7 @@ export function FileUpload({
                 {selectedFile.name}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {(selectedFile.size / 1024).toFixed(1)} KB · Ready to prepare
+                <span className="tabular">{(selectedFile.size / 1024).toFixed(1)} KB</span>, ready to prepare
               </p>
               <p className="mt-3 text-xs text-primary underline underline-offset-4">
                 Choose a different file
@@ -184,7 +186,7 @@ export function FileUpload({
           </>
         ) : (
           <>
-            <span className="flex size-12 items-center justify-center rounded-xl border bg-card text-primary shadow-xs">
+            <span className="flex size-12 items-center justify-center rounded-md border-2 border-ink bg-cta text-cta-foreground shadow-hard-sm">
               <Upload className="size-5" strokeWidth={1.5} aria-hidden />
             </span>
             <div>
@@ -193,7 +195,7 @@ export function FileUpload({
                 or choose a file from your device
               </p>
             </div>
-            <span className="rounded-lg border bg-card px-4 py-2 text-xs font-semibold shadow-xs">
+            <span className="rounded-md border-2 border-ink bg-card px-4 py-2 text-xs font-semibold shadow-hard-sm">
               Browse files
             </span>
           </>

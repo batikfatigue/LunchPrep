@@ -31,15 +31,10 @@ const CHIPS: Array<{ id: ReviewFilter; label: string }> = [
   { id: "uncategorised", label: "Uncategorised" },
 ];
 
-/** Chip colouring per filter when active. */
-const ACTIVE_CHIP: Record<ReviewFilter, string> = {
-  all: "border-foreground/15 bg-foreground/10 text-foreground",
-  categorised:
-    "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300",
-  "needs-review":
-    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-300",
-  uncategorised: "border-border bg-muted text-foreground",
-};
+/** Chip treatment when active. */
+// Reason: one active treatment for every chip keeps the filter row quiet;
+// the counts carry the meaning, not a rainbow of colours.
+const ACTIVE_CHIP = "border-ink bg-cta text-cta-foreground shadow-hard-sm";
 
 /**
  * Review step heading, filter chips and search field.
@@ -57,12 +52,9 @@ export function ReviewToolbar({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <p className="mb-3 text-[10px] font-bold tracking-[0.16em] text-primary">
-          A PLACE FOR EVERY TRANSACTION
-        </p>
         <h1
           tabIndex={-1}
-          className="text-3xl font-semibold tracking-tight sm:text-4xl"
+          className="text-4xl font-bold leading-[1.05] tracking-tight outline-none sm:text-5xl"
         >
           The details, made clear.
         </h1>
@@ -86,7 +78,10 @@ export function ReviewToolbar({
             icon: CircleDashed,
           },
         ].map(({ label, value, icon: Icon }) => (
-          <div key={label} className="rounded-xl border bg-card p-3 sm:p-5">
+          <div
+            key={label}
+            className="rounded-xl border-2 border-ink bg-card p-3 shadow-hard-sm sm:p-5"
+          >
             <dt className="flex items-center justify-between gap-1 text-[10px] text-muted-foreground sm:text-xs">
               {label}
               <Icon
@@ -94,7 +89,7 @@ export function ReviewToolbar({
                 aria-hidden
               />
             </dt>
-            <dd className="mt-2 text-2xl font-semibold tabular-nums">
+            <dd className="tabular mt-2 text-3xl font-semibold">
               {value}
             </dd>
           </div>
@@ -116,15 +111,15 @@ export function ReviewToolbar({
                 aria-pressed={isActive}
                 onClick={() => onFilterChange(chip.id)}
                 className={cn(
-                  "inline-flex min-h-9 items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+                  "inline-flex min-h-9 items-center gap-2 rounded-full border-2 px-3.5 py-1.5 text-xs font-semibold transition-[background-color,box-shadow]",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   isActive
-                    ? ACTIVE_CHIP[chip.id]
-                    : "border-border text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                    ? ACTIVE_CHIP
+                    : "border-border bg-card text-muted-foreground hover:border-ink hover:text-foreground",
                 )}
               >
                 {chip.label}
-                <span className="tabular-nums opacity-70">
+                <span className="tabular opacity-70">
                   {counts[chip.id]}
                 </span>
               </button>
@@ -146,8 +141,8 @@ export function ReviewToolbar({
             placeholder="Search payee, description, or amount…"
             aria-label="Search transactions"
             className={cn(
-              "h-10 w-full rounded-lg border bg-card pl-9 pr-3 text-sm outline-none",
-              "placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+              "h-10 w-full rounded-md border-2 border-input bg-card pl-9 pr-3 text-sm outline-none",
+              "placeholder:text-muted-foreground focus-visible:border-ink focus-visible:shadow-hard-sm",
             )}
           />
         </div>

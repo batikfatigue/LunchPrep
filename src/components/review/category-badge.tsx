@@ -52,7 +52,7 @@ export interface CategoryBadgeProps {
   /** Category label. Empty string renders the placeholder badge. */
   category: string;
   /**
-   * Render the amber "Needs Review" treatment instead of the category colour.
+   * Render the yellow "Needs Review" treatment instead of the category colour.
    * Used when the assigned category is low-confidence.
    */
   needsReview?: boolean;
@@ -71,8 +71,7 @@ export function CategoryBadge({ category, needsReview, className }: CategoryBadg
       <span
         className={cn(
           "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium",
-          "border-amber-200 bg-amber-50 text-amber-700",
-          "dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300",
+          "border-ink bg-cta/40 text-foreground",
           className,
         )}
       >
