@@ -2,31 +2,27 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { Dialog } from "radix-ui";
 import {
   ArrowUpRight,
   BookOpen,
-  ChevronRight,
-  FileUp,
   Github,
   LockKeyhole,
   Settings2,
-  ShieldCheck,
   Sparkles,
   Tags,
   X,
+  Menu,
   type LucideIcon,
 } from "lucide-react";
-import {
-  ApiKeyInput,
-  type AiProviderSettings,
-} from "@/components/api-key-input";
-import { CategoryEditor } from "@/components/category-editor";
+import type { AiProviderSettings } from "@/components/api-key-input";
 import { PipelineSteps, type PipelineStep } from "@/components/pipeline-steps";
+import {
+  SettingsDialog,
+  type SettingsPanel,
+} from "@/components/settings-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { APP_VERSION, GITHUB_URL } from "@/lib/app-meta";
-import { cn } from "@/lib/utils";
 
 export interface AppShellProps {
   currentStep: PipelineStep;
@@ -37,9 +33,14 @@ export interface AppShellProps {
   children: React.ReactNode;
 }
 
-type SettingsPanel = "general" | "ai" | "categories";
+const TOOLS: Array<{ panel: SettingsPanel; label: string; icon: LucideIcon }> =
+  [
+    { panel: "categories", label: "Categories", icon: Tags },
+    { panel: "ai", label: "AI preferences", icon: Sparkles },
+    { panel: "general", label: "Settings", icon: Settings2 },
+  ];
 
-/** Responsive workspace with shared, keyboard-accessible settings. */
+/** Top-bar workspace: brand, progress, tools. Content gets the full width. */
 export function AppShell({
   currentStep,
   aiSettings,
@@ -64,245 +65,160 @@ export function AppShell({
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
+    setMenuOpen(false);
     setPanel(next);
   };
 
   return (
-    <div className="min-h-screen lg:pl-60">
+    <div className="min-h-dvh">
       <a
         href="#main-content"
-        className="sr-only z-50 rounded-lg bg-card p-3 focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+        className="sr-only z-50 rounded-md bg-card p-3 focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
       >
         Skip to content
       </a>
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r bg-card px-5 py-8 lg:flex">
-        <Wordmark />
-        <nav aria-label="Workspace" className="mt-12 flex-1">
-          <p className="mb-3 px-3 text-[10px] font-semibold tracking-[0.16em] text-muted-foreground">
-            WORKSPACE
-          </p>
-          <div
-            aria-current="page"
-            className="flex items-center gap-3 rounded-lg bg-accent px-3 py-3 text-sm font-semibold text-primary"
-          >
-            <FileUp className="size-4" aria-hidden /> Statement import
-            <span className="ml-auto size-1.5 rounded-full bg-brand" />
+
+      <header className="sticky top-0 z-30 border-b-2 border-ink bg-background/90 backdrop-blur">
+        {/* Reason: one stepper element, re-placed by grid so assistive tech
+            never sees a duplicate progress landmark. */}
+        <div className="mx-auto grid max-w-[1280px] grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 px-4 py-2 sm:px-8 md:h-16 md:grid-cols-[1fr_auto_1fr] md:py-0">
+          <Wordmark />
+          <div className="col-span-2 row-start-2 justify-self-center md:col-span-1 md:col-start-2 md:row-start-1">
+            <PipelineSteps currentStep={currentStep} />
           </div>
-          <SidebarButton icon={Tags} onClick={() => openPanel("categories")}>
-            Categories
-          </SidebarButton>
-          <SidebarButton icon={Sparkles} onClick={() => openPanel("ai")}>
-            AI preferences
-          </SidebarButton>
-          <div className="mt-8 border-t pt-5">
-            <SidebarButton
-              icon={Settings2}
-              onClick={() => openPanel("general")}
+          <div className="flex items-center justify-self-end gap-1.5 md:col-start-3 md:row-start-1">
+            <nav
+              aria-label="Workspace"
+              className="hidden items-center gap-1 lg:flex"
             >
-              Settings
-            </SidebarButton>
+              {TOOLS.map(({ panel: id, label, icon: Icon }) => (
+                <Button
+                  key={id}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => openPanel(id)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <Icon className="size-4" aria-hidden />
+                  <span className="hidden xl:inline">{label}</span>
+                  <span className="sr-only xl:hidden">{label}</span>
+                </Button>
+              ))}
+              <a
+                href={`${GITHUB_URL}#how-it-works`}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Import guide"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-sm font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <BookOpen className="size-4" aria-hidden />
+                <span className="hidden xl:inline">Guide</span>
+              </a>
+            </nav>
+            <ThemeToggle />
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setMenuOpen(!menuOpen)}
+              aria-label="Toggle workspace menu"
+              aria-expanded={menuOpen}
+              aria-controls="mobile-menu"
+              className="lg:hidden"
+            >
+              {menuOpen ? <X className="size-4" /> : <Menu className="size-4" />}
+            </Button>
+          </div>
+        </div>
+        {menuOpen && (
+          <nav
+            id="mobile-menu"
+            aria-label="Workspace"
+            className="border-t-2 border-ink bg-card px-4 py-2 lg:hidden"
+          >
+            {TOOLS.map(({ panel: id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => openPanel(id)}
+                className="flex w-full items-center gap-3 rounded-md px-3 py-3 text-left text-sm font-medium hover:bg-accent"
+              >
+                <Icon className="size-4" aria-hidden />
+                {label}
+              </button>
+            ))}
             <a
               href={`${GITHUB_URL}#how-it-works`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium hover:bg-accent"
             >
-              <BookOpen className="size-4" aria-hidden /> Import guide{" "}
+              <BookOpen className="size-4" aria-hidden /> Import guide
               <ArrowUpRight className="ml-auto size-3.5" aria-hidden />
             </a>
-          </div>
-        </nav>
-        <div className="rounded-xl border bg-background p-4">
-          <ShieldCheck className="mb-3 size-5 text-primary" aria-hidden />
-          <p className="text-xs font-semibold">Your finances. Your control.</p>
-          <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-            No bank connection needed. You choose what to import.
-          </p>
-        </div>
-        <a
-          href="https://lunchmoney.app"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-6 self-start rounded-md bg-white p-1.5"
-        >
-          <Image
-            src="/powered-by-lunch-money.png"
-            alt="Powered by Lunch Money"
-            width={146}
-            height={42}
-          />
-        </a>
-        <p className="mt-3 px-1 text-[10px] text-muted-foreground">
-          Independent community tool · v{APP_VERSION}
-        </p>
-      </aside>
-
-      <header className="flex min-h-20 items-center justify-between gap-3 border-b bg-card px-5 sm:px-8 lg:px-10">
-        <div className="hidden items-center gap-3 text-xs text-muted-foreground lg:flex">
-          Workspace <ChevronRight className="size-3" aria-hidden />
-          <span className="font-medium text-foreground">Statement import</span>
-        </div>
-        <div className="lg:hidden">
-          <Wordmark />
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex">
-            <LockKeyhole className="size-3.5 text-primary" aria-hidden />{" "}
-            Private by design
-          </span>
-          <span className="hidden h-4 border-l sm:block" />
-          <ThemeToggle />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setMenuOpen(!menuOpen)}
-            aria-label="Toggle workspace menu"
-            aria-expanded={menuOpen}
-            aria-controls="mobile-menu"
-            className="lg:hidden"
-          >
-            {menuOpen ? (
-              <X className="size-5" />
-            ) : (
-              <Settings2 className="size-5" />
-            )}
-          </Button>
-        </div>
+          </nav>
+        )}
       </header>
-      {menuOpen && (
-        <nav
-          id="mobile-menu"
-          aria-label="Workspace"
-          className="border-b bg-card px-5 py-3 lg:hidden"
-        >
-          <SidebarButton icon={Tags} onClick={() => openPanel("categories")}>
-            Categories
-          </SidebarButton>
-          <SidebarButton icon={Sparkles} onClick={() => openPanel("ai")}>
-            AI preferences
-          </SidebarButton>
-          <SidebarButton icon={Settings2} onClick={() => openPanel("general")}>
-            Settings
-          </SidebarButton>
-          <a
-            href={`${GITHUB_URL}#how-it-works`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block px-3 py-3 text-sm text-muted-foreground"
-          >
-            Import guide ↗
-          </a>
-        </nav>
-      )}
+
       <main
         ref={mainRef}
         id="main-content"
         tabIndex={-1}
-        className="mx-auto max-w-[1240px] px-5 py-7 sm:px-8 lg:px-10 lg:py-9"
+        className="mx-auto max-w-[1280px] px-4 py-8 outline-none sm:px-8 lg:py-12"
       >
-        <div className="mb-9 flex flex-wrap items-center justify-between gap-4">
-          <PipelineSteps currentStep={currentStep} />
-          <span className="hidden text-xs text-muted-foreground xl:block">
-            A fresh start for your transactions.
-          </span>
-        </div>
         <div
           key={currentStep}
-          className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 motion-safe:duration-300"
+          className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-300"
         >
           {children}
         </div>
-        <footer className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t pt-5 text-[11px] text-muted-foreground">
-          <p>Made for a little less admin, and a little more life.</p>
-          <a
-            href={GITHUB_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 hover:text-primary"
-          >
-            <Github className="size-3.5" aria-hidden /> Open source{" "}
-            <ArrowUpRight className="size-3" aria-hidden />
-          </a>
+      </main>
+
+      <footer className="border-t-2 border-ink bg-card">
+        <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-x-8 gap-y-4 px-4 py-6 text-xs text-muted-foreground sm:px-8">
           <a
             href="https://lunchmoney.app"
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full text-primary lg:hidden"
+            className="rounded-md bg-white p-1.5 ring-1 ring-border"
           >
-            Built for Lunch Money
+            <Image
+              src="/powered-by-lunch-money.png"
+              alt="Powered by Lunch Money"
+              width={130}
+              height={38}
+            />
           </a>
-        </footer>
-      </main>
-
-      <Dialog.Root
-        open={panel !== null}
-        onOpenChange={(open) => {
-          if (!open) setPanel(null);
-        }}
-      >
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-40 bg-black/35 backdrop-blur-sm" />
-          <Dialog.Content
-            onCloseAutoFocus={(event) => {
-              event.preventDefault();
-              triggerRef.current?.focus();
-            }}
-            className="fixed left-1/2 top-1/2 z-50 flex max-h-[85dvh] w-[min(36rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border bg-card shadow-xl"
+          <p className="flex items-center gap-1.5">
+            <LockKeyhole className="size-3.5 text-primary" aria-hidden />
+            No bank connection. Your CSV never leaves this device unmasked.
+          </p>
+          <p className="sm:ml-auto">
+            Independent community tool, <span className="tabular">v{APP_VERSION}</span>
+          </p>
+          <a
+            href={GITHUB_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 font-semibold text-foreground hover:text-primary"
           >
-            <div className="flex items-center justify-between border-b px-6 py-5">
-              <div>
-                <Dialog.Title className="text-lg font-semibold">
-                  {panel === "categories"
-                    ? "Your categories"
-                    : panel === "ai"
-                      ? "AI preferences"
-                      : "Workspace settings"}
-                </Dialog.Title>
-                <Dialog.Description className="mt-1 text-xs text-muted-foreground">
-                  Make LunchPrep work your way. Preferences save on this device.
-                </Dialog.Description>
-              </div>
-              <Dialog.Close asChild>
-                <Button variant="ghost" size="icon" aria-label="Close settings">
-                  <X className="size-4" />
-                </Button>
-              </Dialog.Close>
-            </div>
-            <div className="flex flex-col gap-6 overflow-y-auto p-6">
-              {panel === "general" && (
-                <section>
-                  <p className="text-sm font-semibold">Appearance</p>
-                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    Use the theme button in the header to switch between light,
-                    dark, and your system preference.
-                  </p>
-                </section>
-              )}
-              {panel !== "categories" && (
-                <section className={cn(panel === "general" && "border-t pt-5")}>
-                  <ApiKeyInput
-                    settings={aiSettings}
-                    onSettingsChange={onAiSettingsChange}
-                  />
-                </section>
-              )}
-              {panel !== "ai" && (
-                <section className={cn(panel === "general" && "border-t pt-5")}>
-                  <CategoryEditor
-                    categories={categories}
-                    onCategoriesChange={onCategoriesChange}
-                  />
-                </section>
-              )}
-            </div>
-            <div className="flex justify-end border-t px-6 py-4">
-              <Dialog.Close asChild>
-                <Button>Done</Button>
-              </Dialog.Close>
-            </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+            <Github className="size-3.5" aria-hidden /> Open source{" "}
+            <ArrowUpRight className="size-3" aria-hidden />
+          </a>
+        </div>
+      </footer>
+
+      <SettingsDialog
+        panel={panel}
+        onClose={() => setPanel(null)}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          triggerRef.current?.focus();
+        }}
+        aiSettings={aiSettings}
+        onAiSettingsChange={onAiSettingsChange}
+        categories={categories}
+        onCategoriesChange={onCategoriesChange}
+      />
     </div>
   );
 }
@@ -310,7 +226,7 @@ export function AppShell({
 /** Distinct LunchPrep identity, separate from the integration badge. */
 function Wordmark() {
   return (
-    <div className="flex items-center gap-2.5">
+    <div className="flex items-center gap-2">
       <Image
         src="/icon.png"
         alt=""
@@ -318,30 +234,9 @@ function Wordmark() {
         height={40}
         className="size-10 shrink-0 object-contain"
       />
-      <span className="text-xl font-bold tracking-[-0.7px]">
-        lunchprep<span className="text-brand">.</span>
+      <span className="font-display text-xl font-bold tracking-tight">
+        lunchprep
       </span>
     </div>
-  );
-}
-
-function SidebarButton({
-  icon: Icon,
-  onClick,
-  children,
-}: {
-  icon: LucideIcon;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-    >
-      <Icon className="size-4" aria-hidden />
-      {children}
-    </button>
   );
 }

@@ -4,12 +4,12 @@ import {
   ArrowLeft,
   ArrowUpRight,
   Check,
-  CircleAlert,
   Download,
   FileCheck2,
   FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
 import { ResetImportButton } from "@/components/reset-import-button";
 import { formatCurrency } from "@/lib/review/status";
 
@@ -39,12 +39,9 @@ export function ExportStep({
 }: ExportStepProps) {
   return (
     <div className="mx-auto max-w-3xl">
-      <p className="mb-3 text-[10px] font-bold tracking-[0.16em] text-primary">
-        THE FINISHING TOUCH
-      </p>
       <h1
         tabIndex={-1}
-        className="text-3xl font-semibold tracking-tight sm:text-4xl"
+        className="text-4xl font-bold leading-[1.05] tracking-tight outline-none sm:text-5xl"
       >
         {downloaded
           ? "A little less life admin."
@@ -56,17 +53,14 @@ export function ExportStep({
           : "One last look, then your transactions are ready to take with you."}
       </p>
       {isDemo && (
-        <p
-          role="status"
-          className="mt-5 rounded-lg border border-amber-300/50 bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
-        >
-          Sample statement · Fictional data for exploring LunchPrep. Don&apos;t
-          import it into your real budget.
-        </p>
+        <Notice tone="warning" className="mt-5">
+          Sample statement with fictional data. Don&apos;t import it into your
+          real budget.
+        </Notice>
       )}
-      <section className="mt-7 overflow-hidden rounded-2xl border bg-card">
-        <div className="flex items-center gap-4 border-b p-6">
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-accent text-primary">
+      <section className="mt-7 overflow-hidden rounded-xl border-2 border-ink bg-card shadow-hard-lg">
+        <div className="flex items-center gap-4 border-b-2 border-ink bg-cta/25 p-6">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-md border-2 border-ink bg-cta text-cta-foreground shadow-hard-sm">
             <FileCheck2 className="size-6" aria-hidden />
           </span>
           <div>
@@ -77,11 +71,11 @@ export function ExportStep({
               Dates, payees, amounts, categories and notes
             </p>
           </div>
-          <span className="ml-auto hidden rounded-full bg-accent px-3 py-1 text-xs text-primary sm:block">
+          <span className="ml-auto hidden rounded-full border-2 border-ink bg-card px-3 py-1 text-xs font-semibold sm:block">
             {downloaded ? "Downloaded" : "Prepared"}
           </span>
         </div>
-        <dl className="grid grid-cols-2 gap-6 border-b p-6 sm:grid-cols-4">
+        <dl className="grid grid-cols-2 gap-6 border-b-2 border-ink p-6 sm:grid-cols-4">
           {[
             ["Transactions", String(total)],
             ["Categorised", String(categorised)],
@@ -90,7 +84,7 @@ export function ExportStep({
           ].map(([label, value]) => (
             <div key={label}>
               <dt className="text-[11px] text-muted-foreground">{label}</dt>
-              <dd className="mt-2 text-xl font-semibold tabular-nums">
+              <dd className="tabular mt-2 text-2xl font-semibold">
                 {value}
               </dd>
             </div>
@@ -98,27 +92,24 @@ export function ExportStep({
         </dl>
         <div className="p-6">
           {needsReview > 0 ? (
-            <div className="mb-5 flex items-start gap-3 rounded-xl border border-amber-300/50 bg-amber-50 p-4 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
-              <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-              <div className="text-sm">
-                <p className="font-medium">
-                  {needsReview} transaction{needsReview === 1 ? "" : "s"} still{" "}
-                  {needsReview === 1 ? "needs" : "need"} a look.
-                </p>
-                <p className="mt-1 text-xs leading-5">
-                  You can export now, or go back to check categories first.
-                </p>
-                <button
-                  onClick={onBack}
-                  className="mt-2 text-xs font-semibold underline underline-offset-4"
-                >
-                  Back to review
-                </button>
-              </div>
-            </div>
+            <Notice tone="warning" className="mb-5">
+              <p className="text-sm font-semibold">
+                {needsReview} transaction{needsReview === 1 ? "" : "s"} still{" "}
+                {needsReview === 1 ? "needs" : "need"} a look.
+              </p>
+              <p className="mt-1">
+                You can export now, or go back to check categories first.
+              </p>
+              <button
+                onClick={onBack}
+                className="mt-2 font-semibold underline underline-offset-4"
+              >
+                Back to review
+              </button>
+            </Notice>
           ) : (
-            <p className="mb-5 flex items-center gap-2 text-xs text-primary">
-              <Check className="size-4" aria-hidden /> Every transaction has a
+            <p className="mb-5 flex items-start gap-2 text-xs font-medium text-primary">
+              <Check className="mt-0.5 size-4 shrink-0" strokeWidth={3} aria-hidden /> Every transaction has a
               recognised category. Give the details a final check before
               importing.
             </p>
@@ -137,7 +128,7 @@ export function ExportStep({
           </p>
         </div>
       </section>
-      <section className="mt-6 rounded-2xl border bg-accent/40 p-6">
+      <section className="mt-6 rounded-xl border-2 border-border bg-card p-6">
         <div className="flex items-center gap-2">
           <FileText className="size-4 text-primary" aria-hidden />
           <h2 className="text-sm font-semibold">
@@ -152,7 +143,7 @@ export function ExportStep({
           href="https://lunchmoney.app"
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+          className="mt-3 inline-flex items-center gap-1 text-xs font-semibold underline decoration-cta decoration-[3px] underline-offset-4 hover:decoration-foreground"
         >
           Open Lunch Money <ArrowUpRight className="size-3.5" aria-hidden />
         </a>

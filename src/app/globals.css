@@ -7,12 +7,21 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: "Avenir Next", Avenir, var(--font-inter), sans-serif;
-  --color-brand: #44958c;
-  --color-sunshine: #fbb700;
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-bricolage), var(--font-geist), ui-sans-serif,
+    system-ui, sans-serif;
   --font-mono:
-    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
-    monospace;
+    var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+    Consolas, monospace;
+  --color-brand: #3a8579;
+  --color-sunshine: var(--cta);
+  /* Lunchbox language: ink outlines, flat fills, hard offset shadows. */
+  --color-ink: var(--ink-line);
+  --color-cta: var(--cta);
+  --color-cta-foreground: var(--cta-foreground);
+  --shadow-hard-sm: 2px 2px 0 0 var(--shadow-color);
+  --shadow-hard: 3px 3px 0 0 var(--shadow-color);
+  --shadow-hard-lg: 6px 6px 0 0 var(--shadow-color);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -52,25 +61,33 @@
 }
 
 :root {
-  --radius: 0.75rem;
-  /* Warm off-white canvas so the white cards read as elevated surfaces. */
-  --background: #f8f9f6;
-  --foreground: #253d3a;
+  /*
+   * Shape rule: cards use rounded-xl, controls use rounded-md, chips and
+   * status badges are full pills. Nothing else.
+   */
+  --radius: 0.875rem;
+  --ink-line: #16201e;
+  --shadow-color: #16201e;
+  --cta: #fbb700;
+  --cta-foreground: #16201e;
+  /* Cool paper canvas so white cards and ink outlines carry the structure. */
+  --background: #f1f4f2;
+  --foreground: #16201e;
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.21 0.01 160);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.21 0.01 160);
-  --primary: #28766d;
+  --primary: #1f6f66;
   --primary-foreground: oklch(0.985 0 0);
   --secondary: #edf3ef;
   --secondary-foreground: oklch(0.24 0.02 162);
   --muted: oklch(0.968 0.003 95);
-  --muted-foreground: #63736e;
-  --accent: #eaf3ee;
+  --muted-foreground: #55655f;
+  --accent: #e3eeea;
   --accent-foreground: oklch(0.33 0.05 162);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: #e1e7e1;
-  --input: #d2dcd5;
+  --border: #dbe2de;
+  --input: #b9c6bf;
   --ring: oklch(0.55 0.075 162);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
@@ -88,6 +105,11 @@
 }
 
 .dark {
+  /* Dark outlines are light so the chunky edges still read; shadows lift. */
+  --ink-line: #9fb2a9;
+  --shadow-color: #2b3833;
+  --cta: #fbb700;
+  --cta-foreground: #16201e;
   --background: oklch(0.17 0.008 160);
   --foreground: oklch(0.975 0.004 120);
   --card: oklch(0.225 0.009 160);
@@ -128,6 +150,20 @@
 
   body {
     @apply bg-background font-sans text-foreground;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+
+  /* Money and counts line up in columns. */
+  .tabular {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
   }
 
   button,

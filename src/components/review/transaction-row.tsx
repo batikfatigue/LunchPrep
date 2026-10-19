@@ -48,7 +48,7 @@ interface EditableCellProps {
  */
 export function EditableCell({
   value,
-  placeholder = "—",
+  placeholder = "-",
   onCommit,
   onEditEnd,
   className,
@@ -199,9 +199,9 @@ export function TransactionRow({
   return (
     <tr
       className={cn(
-        "border-b last:border-0 transition-colors hover:bg-muted/40",
-        needsReview && "bg-amber-50/60 dark:bg-amber-950/20",
-        isSelected && "bg-accent/40 ring-1 ring-inset ring-ring/20",
+        "border-b last:border-0 transition-colors hover:bg-accent/50",
+        needsReview && "bg-cta/10",
+        isSelected && "bg-accent ring-2 ring-inset ring-ink",
         onRowSelect && "cursor-pointer",
       )}
       onClick={() => {
@@ -219,7 +219,7 @@ export function TransactionRow({
       </td>
 
       {/* Date */}
-      <td className="whitespace-nowrap px-3 py-3 text-xs text-muted-foreground">
+      <td className="tabular whitespace-nowrap px-3 py-3 text-xs text-muted-foreground">
         {formatTableDate(transaction.date)}
       </td>
 
@@ -254,8 +254,8 @@ export function TransactionRow({
           <Select.Trigger
             onClick={(e) => e.stopPropagation()}
             className={cn(
-              "flex w-full max-w-44 items-center justify-between gap-1 rounded-full border bg-background/60 py-0.5 pl-0.5 pr-2",
-              "transition-colors hover:bg-accent/40 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1",
+              "flex w-full max-w-44 items-center justify-between gap-1 rounded-full border-2 border-border bg-card py-0.5 pl-0.5 pr-2",
+              "transition-colors hover:border-ink focus:border-ink focus:outline-none focus:shadow-hard-sm",
             )}
             aria-label="Select category"
           >
@@ -272,7 +272,7 @@ export function TransactionRow({
 
           <Select.Portal>
             <Select.Content
-              className="z-50 max-h-60 min-w-[9rem] overflow-auto rounded-md border bg-popover shadow-md"
+              className="z-50 max-h-60 min-w-[9rem] overflow-auto rounded-md border-2 border-ink bg-popover shadow-hard"
               position="popper"
               sideOffset={4}
             >
@@ -298,10 +298,8 @@ export function TransactionRow({
       {/* Amount */}
       <td
         className={cn(
-          "whitespace-nowrap px-3 py-2 text-right tabular-nums",
-          isDebit
-            ? "text-foreground"
-            : "text-emerald-600 dark:text-emerald-400",
+          "tabular whitespace-nowrap px-3 py-2 text-right text-[13px]",
+          isDebit ? "text-foreground" : "font-semibold text-primary",
         )}
       >
         {formatAmount(transaction.amount)}
@@ -324,7 +322,7 @@ function ReviewStatusIcon({ status }: { status: ReviewStatus }) {
   if (status === "categorised") {
     return (
       <CheckCircle2
-        className="size-4 text-emerald-600 dark:text-emerald-400"
+        className="size-4 text-primary"
         aria-label="Categorised"
       />
     );
@@ -332,7 +330,7 @@ function ReviewStatusIcon({ status }: { status: ReviewStatus }) {
   if (status === "needs-review") {
     return (
       <CircleAlert
-        className="size-4 text-amber-500"
+        className="size-4 text-foreground"
         aria-label="Needs your review"
       />
     );

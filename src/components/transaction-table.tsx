@@ -287,7 +287,7 @@ export function TransactionTable({
       />
 
       {checkedRows.size > 0 && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-primary/20 bg-accent p-3">
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border-2 border-ink bg-cta/30 p-3 shadow-hard-sm">
           <span className="text-xs font-semibold">
             {checkedRows.size} selected
           </span>
@@ -296,7 +296,7 @@ export function TransactionTable({
             value={bulkCategory}
             onChange={(event) => setBulkCategory(event.target.value)}
             disabled={status === "loading"}
-            className="h-9 min-w-0 rounded-lg border bg-card px-3 text-xs"
+            className="h-9 min-w-0 rounded-md border-2 border-ink bg-card px-3 text-xs"
           >
             <option value="">Choose a category…</option>
             {categories.map((category) => (
@@ -330,7 +330,7 @@ export function TransactionTable({
         </div>
       )}
       <div
-        className="relative overflow-hidden rounded-xl border bg-card"
+        className="relative overflow-hidden rounded-xl border-2 border-ink bg-card shadow-hard"
         aria-busy={status === "loading"}
       >
         {/* Loading overlay — shown while AI categorisation is in-flight */}
@@ -350,7 +350,7 @@ export function TransactionTable({
         {status === "error" && (
           <div
             role="alert"
-            className="border-b border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+            className="border-b-2 border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive"
           >
             AI categorisation failed. You can assign categories manually using
             the dropdowns below.
@@ -369,7 +369,7 @@ export function TransactionTable({
               exporting.
             </caption>
             <thead>
-              <tr className="border-b bg-muted/40 text-left text-xs font-medium text-muted-foreground">
+              <tr className="border-b-2 border-ink bg-cta/20 text-left text-xs font-semibold text-foreground">
                 <th className="w-10 px-3 py-2">
                   <Checkbox
                     checked={headerChecked}
@@ -440,11 +440,11 @@ export function TransactionTable({
         )}
 
         {/* Selection count + pagination */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t-2 border-ink px-4 py-3">
           <p className="text-xs text-muted-foreground">
             {visible.length === 0
               ? "0 transactions"
-              : `${safePage * PAGE_SIZE + 1}–${Math.min((safePage + 1) * PAGE_SIZE, visible.length)} of ${visible.length} transactions`}
+              : `${safePage * PAGE_SIZE + 1}-${Math.min((safePage + 1) * PAGE_SIZE, visible.length)} of ${visible.length} transactions`}
           </p>
           <ReviewPagination
             page={safePage}
@@ -456,15 +456,15 @@ export function TransactionTable({
 
       {/* Keyboard tip */}
       {!tipDismissed && (
-        <div className="flex items-start gap-3 rounded-xl bg-accent/40 px-4 py-3">
+        <div className="flex items-start gap-3 rounded-xl border-2 border-dashed border-ink/40 px-4 py-3">
           <Lightbulb
-            className="mt-0.5 size-4 shrink-0 text-amber-500"
+            className="mt-0.5 size-4 shrink-0 text-primary"
             aria-hidden
           />
           <div className="min-w-0 flex-1 text-xs">
             <p className="font-medium">Tip: Use shortcuts</p>
             <p className="mt-0.5 text-muted-foreground">
-              Press <kbd className="rounded border px-1">/</kbd> to search.
+              Press <kbd className="tabular rounded border-2 border-ink px-1.5">/</kbd> to search.
               Click any payee, note or category to edit it inline.
             </p>
           </div>

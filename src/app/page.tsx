@@ -25,6 +25,7 @@ import {
   type CategorisationStatus,
 } from "@/components/transaction-table";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
 
 import { useImportPreferences } from "@/hooks/use-import-preferences";
 import { useSessionPersistence } from "@/hooks/use-session-persistence";
@@ -396,18 +397,17 @@ export default function Home() {
       {step === "review" && (
         <div className="flex flex-col gap-5">
           {isDemo && (
-            <p
-              role="status"
-              className="rounded-lg border border-amber-300/50 bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
-            >
+            <Notice tone="warning">
               You&apos;re exploring a sample. All transactions are fictional,
               and your saved review stays untouched.
-            </p>
+            </Notice>
           )}
           <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
             <FileText className="size-3.5 shrink-0" aria-hidden />
-            <span className="truncate">{csvFilename}</span>
-            <span className="ml-auto shrink-0">SGD</span>
+            <span className="tabular truncate">{csvFilename}</span>
+            <span className="tabular ml-auto shrink-0 rounded-full border-2 border-ink bg-card px-2 py-0.5 font-semibold text-foreground">
+              SGD
+            </span>
           </p>
           <TransactionTable
             transactions={transactions}
@@ -437,7 +437,7 @@ export default function Home() {
           )}
 
           {/* Step actions */}
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-ink bg-card p-4 shadow-hard">
             <ResetImportButton
               onReset={handleReset}
               disabled={catStatus === "loading"}
