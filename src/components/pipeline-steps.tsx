@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 export type PipelineStep = "upload" | "review" | "export";
 export interface PipelineStepsProps {
   currentStep: PipelineStep;
+  /** True only while parsing or categorising is really running. */
+  busy?: boolean;
 }
 
 const STEPS: Array<{ id: PipelineStep; label: string }> = [
@@ -14,12 +16,20 @@ const STEPS: Array<{ id: PipelineStep; label: string }> = [
   { id: "export", label: "Export" },
 ];
 
-/** Segmented, always-labelled progress. The current step wears the yellow. */
-export function PipelineSteps({ currentStep }: PipelineStepsProps) {
+/**
+ * Workbench status strip: three mono stations joined by a hairline. The current
+ * step sits on the marker, finished steps carry a check, upcoming steps are
+ * muted. While work is genuinely running the current step shows a pulsing dot
+ * plus a screen-reader "in progress"; it is never animated otherwise.
+ *
+ * @param {PipelineStepsProps} props - The step currently shown and whether work is running.
+ * @returns {JSX.Element} A labelled progress list.
+ */
+export function PipelineSteps({ currentStep, busy = false }: PipelineStepsProps) {
   const currentIndex = STEPS.findIndex((step) => step.id === currentStep);
   return (
     <nav aria-label="Import progress">
-      <ol className="flex items-center gap-1.5 rounded-full border-2 border-ink bg-card p-1">
+      <ol className="flex items-center gap-2 sm:gap-3">
         {STEPS.map((step, index) => {
           const isCurrent = index === currentIndex;
           const isDone = index < currentIndex;
@@ -27,34 +37,44 @@ export function PipelineSteps({ currentStep }: PipelineStepsProps) {
             <li
               key={step.id}
               aria-current={isCurrent ? "step" : undefined}
-              className={cn(
-                "flex items-center gap-2 rounded-full py-1 pl-1 pr-3.5 text-xs font-semibold transition-colors sm:text-sm",
-                isCurrent
-                  ? "bg-cta text-cta-foreground"
-                  : isDone
-                    ? "text-foreground"
-                    : "text-muted-foreground",
-              )}
+              className="flex items-center gap-2 sm:gap-3"
             >
+              {index > 0 && (
+                <span
+                  aria-hidden
+                  className={cn(
+                    "h-px w-4 transition-colors duration-300 sm:w-7",
+                    isDone || isCurrent ? "bg-foreground" : "bg-border",
+                  )}
+                />
+              )}
               <span
                 className={cn(
-                  "tabular flex size-6 items-center justify-center rounded-full text-[11px]",
-                  isCurrent
-                    ? "bg-foreground text-background"
-                    : isDone
-                      ? "bg-primary text-primary-foreground"
-                      : "border border-input",
+                  "label flex items-center gap-1.5 rounded-[2px] px-2 py-1.5 transition-colors duration-200",
+                  isCurrent && "bg-marker !text-marker-foreground",
+                  isDone && "!text-foreground",
                 )}
               >
-                {isDone ? (
-                  <Check className="size-3" strokeWidth={3} aria-hidden />
-                ) : (
-                  index + 1
+                {isDone && (
+                  <Check className="size-3 text-ok" strokeWidth={3} aria-hidden />
                 )}
-              </span>
-              {step.label}
-              <span className="sr-only">
-                {isDone ? ", complete" : index > currentIndex ? ", upcoming" : ""}
+                {isCurrent && busy && (
+                  <span
+                    aria-hidden
+                    className="size-1.5 rounded-full bg-current"
+                    style={{ animation: "busy-pulse 1s ease-in-out infinite" }}
+                  />
+                )}
+                {step.label}
+                <span className="sr-only">
+                  {isDone
+                    ? ", complete"
+                    : index > currentIndex
+                      ? ", upcoming"
+                      : busy
+                        ? ", in progress"
+                        : ""}
+                </span>
               </span>
             </li>
           );

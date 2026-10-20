@@ -1,12 +1,12 @@
 "use client";
 
+import * as React from "react";
 import { RadioGroup } from "radix-ui";
 import {
   ArrowRight,
   ArrowUpRight,
   Check,
   ChevronDown,
-  Sparkles,
 } from "lucide-react";
 import {
   ApiKeyInput,
@@ -15,6 +15,7 @@ import {
 import { FileUpload } from "@/components/file-upload";
 import { LandingGuide, LandingHero } from "@/components/landing-hero";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Notice } from "@/components/ui/notice";
 
 export type ImportMode = "proxy" | "byok" | "manual";
@@ -54,40 +55,60 @@ export function UploadStep({
     ).trim(),
   );
   const needsKey = mode === "byok" && !hasKey;
+  const canContinue = Boolean(selectedFile) && !isLoading && !needsKey;
 
   return (
-    <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-x-14">
+    <div className="flex flex-col gap-[clamp(72px,10vw,144px)]">
       <LandingHero />
+
       <section
+        id="import"
         aria-labelledby="upload-title"
-        className="min-w-0 overflow-hidden lg:col-start-2 lg:row-span-2 lg:row-start-1 rounded-xl border-2 border-ink bg-card shadow-hard-lg"
+        className="grid gap-x-12 gap-y-10 border-t pt-8 lg:grid-cols-12"
       >
-        <div className="flex items-center justify-between gap-3 border-b-2 border-ink bg-cta/25 px-5 py-4 sm:px-6">
-          <div>
-            <h2 id="upload-title" className="text-xl font-semibold">
-              Import a statement
-            </h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Start with a fresh export from your bank.
-            </p>
+        <div className="lg:col-span-4">
+          <p className="label !text-ok">
+            <span id="import-label">Import a statement</span>
+          </p>
+          <h2
+            id="upload-title"
+            tabIndex={-1}
+            className="import-title mt-5 outline-none"
+          >
+            Start with a fresh <span className="import-title-key">CSV export.</span>
+          </h2>
+          <ol className="import-steps mt-8" aria-label="How to export from DBS / POSB">
+            <li>Open your account&apos;s transaction history in DBS / POSB internet banking.</li>
+            <li>Choose a date range.</li>
+            <li>Export as CSV. PDF statements aren&apos;t supported.</li>
+          </ol>
+          <div className="mt-8 flex flex-wrap items-center gap-x-3 gap-y-1 border-t pt-5 text-sm">
+            <span className="text-muted-foreground">Just looking around?</span>
+            <button
+              type="button"
+              onClick={onTrySample}
+              disabled={isLoading}
+              className="link-quiet inline-flex items-center gap-1 disabled:opacity-50"
+            >
+              Try a sample statement{" "}
+              <ArrowUpRight className="size-3.5" aria-hidden />
+            </button>
           </div>
-          <span className="rounded-full border-2 border-ink bg-card px-2.5 py-0.5 text-[11px] font-semibold">
-            CSV
-          </span>
         </div>
-        <div className="space-y-5 p-5 sm:p-6">
-          <div className="flex items-center gap-3 rounded-md border-2 border-border px-4 py-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-md border-2 border-ink bg-background text-[11px] font-bold">
+
+        <div className="min-w-0 space-y-10 lg:col-span-7 lg:col-start-6">
+          <div className="flex items-center gap-4 border-b pb-5">
+            <span className="label flex h-8 min-w-12 shrink-0 items-center justify-center rounded-full border border-ok px-3 !text-ok">
               DBS
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold">DBS / POSB</p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">
+              <p className="text-base">DBS / POSB</p>
+              <p className="text-sm text-muted-foreground">
                 Personal banking, CSV statement
               </p>
             </div>
-            <span className="flex items-center gap-1 text-[11px] font-semibold text-primary">
-              <Check className="size-3.5" strokeWidth={3} aria-hidden />{" "}
+            <span className="flex items-center gap-1.5 text-sm text-ok">
+              <Check className="size-3.5" strokeWidth={2.5} aria-hidden />
               Supported
             </span>
           </div>
@@ -98,11 +119,10 @@ export function UploadStep({
             isLoading={isLoading}
             error={error}
           />
-          <details className="group rounded-md border-2 border-border">
-            <summary className="flex items-center gap-2.5 rounded-md p-3.5 text-xs">
-              <Sparkles className="size-4 text-primary" aria-hidden />
-              <span className="font-semibold">Categorisation</span>
-              <span className="ml-auto text-muted-foreground">
+          <details className="group border-y">
+            <summary className="flex items-center gap-3 py-5">
+              <span className="label !text-foreground">Categorisation</span>
+              <span className="ml-auto text-sm text-muted-foreground">
                 {mode === "proxy"
                   ? "Shared AI"
                   : mode === "manual"
@@ -110,16 +130,16 @@ export function UploadStep({
                     : "Your API key"}
               </span>
               <ChevronDown
-                className="size-3.5 text-muted-foreground transition-transform group-open:rotate-180"
+                className="size-4 text-muted-foreground transition-transform duration-200 group-open:rotate-180"
                 aria-hidden
               />
             </summary>
-            <div className="border-t-2 border-border p-4">
+            <div className="pb-8 pt-2">
               <RadioGroup.Root
                 aria-label="Categorisation mode"
                 value={mode}
                 onValueChange={(value: ImportMode) => onModeChange(value)}
-                className="space-y-4"
+                className="space-y-6"
               >
                 <ModeOption
                   value="proxy"
@@ -138,7 +158,7 @@ export function UploadStep({
                 />
               </RadioGroup.Root>
               {mode === "byok" && (
-                <div className="mt-5 border-t-2 border-border pt-4">
+                <div className="mt-8 border-t pt-8">
                   <ApiKeyInput
                     settings={aiSettings}
                     onSettingsChange={onAiSettingsChange}
@@ -153,42 +173,21 @@ export function UploadStep({
             </Notice>
           )}
           <Button
-            className="w-full"
+            className={cn(
+              "w-full sm:w-auto",
+              // Reason: gold only when the step is ready, so the one live action stands out.
+              canContinue && "bg-marker text-marker-foreground hover:bg-marker/85",
+            )}
             size="lg"
-            disabled={!selectedFile || isLoading || needsKey}
+            disabled={!canContinue}
             onClick={onContinue}
           >
             {isLoading ? "Preparing your statement…" : "Continue to review"}
             <ArrowRight className="size-4" aria-hidden />
           </Button>
-          <details className="group text-xs">
-            <summary className="flex items-center justify-between gap-2 rounded-md py-1 font-medium text-muted-foreground">
-              Where do I find my CSV?
-              <ChevronDown
-                className="size-3.5 shrink-0 group-open:rotate-180"
-                aria-hidden
-              />
-            </summary>
-            <p className="mt-2 leading-5 text-muted-foreground">
-              In DBS / POSB internet banking, open your account&apos;s
-              transaction history, choose a date range, and export as CSV. PDF
-              statements aren&apos;t supported.
-            </p>
-          </details>
-        </div>
-        <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 border-t-2 border-ink bg-background px-5 py-4 text-xs">
-          <span className="text-muted-foreground">Just looking around?</span>
-          <button
-            type="button"
-            onClick={onTrySample}
-            disabled={isLoading}
-            className="inline-flex items-center gap-1 font-semibold underline decoration-cta decoration-[3px] underline-offset-4 hover:decoration-foreground disabled:opacity-50"
-          >
-            Try a sample statement{" "}
-            <ArrowUpRight className="size-3" aria-hidden />
-          </button>
         </div>
       </section>
+
       <LandingGuide />
     </div>
   );
@@ -208,13 +207,13 @@ function ModeOption({
       <RadioGroup.Item
         id={`mode-${value}`}
         value={value}
-        className="mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full border-2 border-ink bg-card data-[state=checked]:bg-cta"
+        className="mt-1 flex size-[18px] shrink-0 items-center justify-center rounded-full border border-input bg-card transition-colors data-[state=checked]:border-ok"
       >
-        <RadioGroup.Indicator className="size-2 rounded-full bg-foreground" />
+        <RadioGroup.Indicator className="size-2 rounded-full bg-ok" />
       </RadioGroup.Item>
-      <label htmlFor={`mode-${value}`} className="cursor-pointer text-xs">
-        <span className="font-semibold">{title}</span>
-        <span className="mt-1 block leading-5 text-muted-foreground">
+      <label htmlFor={`mode-${value}`} className="cursor-pointer text-sm">
+        <span className="font-medium">{title}</span>
+        <span className="mt-1 block leading-6 text-muted-foreground">
           {description}
         </span>
       </label>

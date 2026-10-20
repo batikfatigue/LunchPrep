@@ -19,9 +19,23 @@ describe("getCategoryStyle", () => {
     expect(getCategoryStyle("Sinking Fund")).toEqual(getCategoryStyle("Sinking Fund"));
   });
 
-  it("falls back to a neutral tag style for an empty category", () => {
+  it("falls back to a dashed, muted tag style for an empty category", () => {
     const style = getCategoryStyle("");
     expect(style.icon).toBe("tag");
-    expect(style.className).toContain("slate");
+    expect(style.className).toBe("border-dashed border-input bg-transparent text-ink-mute");
+  });
+
+  it("treats a whitespace-only category as empty", () => {
+    expect(getCategoryStyle("   ")).toEqual(getCategoryStyle(""));
+  });
+
+  it("gives assigned categories a solid hairline pill, distinct from the empty style", () => {
+    const empty = getCategoryStyle("");
+    for (const name of ["Groceries", "Dining Out", "Sinking Fund"]) {
+      const style = getCategoryStyle(name);
+      expect(style.className).toBe("bg-card text-foreground border-border");
+      expect(style.className).not.toContain("border-dashed");
+      expect(style.className).not.toBe(empty.className);
+    }
   });
 });

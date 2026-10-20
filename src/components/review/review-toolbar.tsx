@@ -6,7 +6,7 @@
  */
 
 import * as React from "react";
-import { CheckCircle2, CircleDashed, ListFilter, Search } from "lucide-react";
+import { Search } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { ReviewFilter, StatusCounts } from "@/lib/review/status";
@@ -31,15 +31,11 @@ const CHIPS: Array<{ id: ReviewFilter; label: string }> = [
   { id: "uncategorised", label: "Uncategorised" },
 ];
 
-/** Chip treatment when active. */
-// Reason: one active treatment for every chip keeps the filter row quiet;
-// the counts carry the meaning, not a rainbow of colours.
-const ACTIVE_CHIP = "border-ink bg-cta text-cta-foreground shadow-hard-sm";
-
 /**
- * Review step heading, filter chips and search field.
+ * Review step heading, stats row, filter chips and search field.
  *
- * @param props - See ReviewToolbarProps.
+ * @param {ReviewToolbarProps} props - Counts, filter, query and their setters.
+ * @returns {JSX.Element} The toolbar block above the table.
  */
 export function ReviewToolbar({
   counts,
@@ -49,54 +45,37 @@ export function ReviewToolbar({
   onQueryChange,
   searchRef,
 }: ReviewToolbarProps) {
+  const stats = [
+    { label: "Transactions", value: counts.all },
+    { label: "Categorised", value: counts.categorised },
+    { label: "To review", value: counts["needs-review"] + counts.uncategorised },
+  ];
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1
-          tabIndex={-1}
-          className="text-4xl font-bold leading-[1.05] tracking-tight outline-none sm:text-5xl"
-        >
-          The details, made clear.
-        </h1>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          Check your transactions, fine-tune the categories, and make them
-          yours.
-        </p>
+    <div className="flex flex-col gap-12">
+      <div className="grid gap-8 lg:grid-cols-12 lg:items-end">
+        <div className="lg:col-span-7">
+          <h1 tabIndex={-1} className="statement outline-none">
+            The details, made <em>clear.</em>
+          </h1>
+          <p className="mt-8 max-w-[46ch] text-lg leading-relaxed text-muted-foreground">
+            Check your transactions, fine-tune the categories, and make them
+            yours. Click any payee, note or category to edit it.
+          </p>
+        </div>
+        <dl className="grid grid-cols-3 lg:col-span-5">
+          {stats.map(({ label, value }, i) => (
+            <div
+              key={label}
+              className={cn("border-l pl-4 sm:pl-6", i === 0 && "border-l-0 pl-0 sm:pl-0")}
+            >
+              <dd className="numeral">{value}</dd>
+              <dt className="label mt-3">{label}</dt>
+            </div>
+          ))}
+        </dl>
       </div>
 
-      <dl className="grid grid-cols-3 gap-3">
-        {[
-          { label: "Transactions", value: counts.all, icon: ListFilter },
-          {
-            label: "Categorised",
-            value: counts.categorised,
-            icon: CheckCircle2,
-          },
-          {
-            label: "To review",
-            value: counts["needs-review"] + counts.uncategorised,
-            icon: CircleDashed,
-          },
-        ].map(({ label, value, icon: Icon }) => (
-          <div
-            key={label}
-            className="rounded-xl border-2 border-ink bg-card p-3 shadow-hard-sm sm:p-5"
-          >
-            <dt className="flex items-center justify-between gap-1 text-[10px] text-muted-foreground sm:text-xs">
-              {label}
-              <Icon
-                className="hidden size-4 text-primary sm:block"
-                aria-hidden
-              />
-            </dt>
-            <dd className="tabular mt-2 text-3xl font-semibold">
-              {value}
-            </dd>
-          </div>
-        ))}
-      </dl>
-
-      <div className="flex flex-col justify-between gap-4 2xl:flex-row 2xl:items-center">
+      <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-center">
         <div
           className="flex flex-wrap gap-2"
           role="group"
@@ -111,26 +90,22 @@ export function ReviewToolbar({
                 aria-pressed={isActive}
                 onClick={() => onFilterChange(chip.id)}
                 className={cn(
-                  "inline-flex min-h-9 items-center gap-2 rounded-full border-2 px-3.5 py-1.5 text-xs font-semibold transition-[background-color,box-shadow]",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "inline-flex min-h-9 items-center gap-2 rounded-full border px-4 py-1.5 text-sm transition-colors duration-200",
                   isActive
-                    ? ACTIVE_CHIP
-                    : "border-border bg-card text-muted-foreground hover:border-ink hover:text-foreground",
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-input text-muted-foreground hover:border-foreground hover:text-foreground",
                 )}
               >
                 {chip.label}
-                <span className="tabular opacity-70">
-                  {counts[chip.id]}
-                </span>
+                <span className="tabular opacity-70">{counts[chip.id]}</span>
               </button>
             );
           })}
         </div>
 
-        {/* Search */}
-        <div className="relative 2xl:w-72">
+        <div className="relative xl:w-80">
           <Search
-            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden
           />
           <input
@@ -140,10 +115,7 @@ export function ReviewToolbar({
             onChange={(e) => onQueryChange(e.target.value)}
             placeholder="Search payee, description, or amount…"
             aria-label="Search transactions"
-            className={cn(
-              "h-10 w-full rounded-md border-2 border-input bg-card pl-9 pr-3 text-sm outline-none",
-              "placeholder:text-muted-foreground focus-visible:border-ink focus-visible:shadow-hard-sm",
-            )}
+            className="h-10 w-full rounded-full border border-input bg-card pl-10 pr-4 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-foreground"
           />
         </div>
       </div>
