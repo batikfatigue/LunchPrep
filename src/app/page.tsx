@@ -358,13 +358,12 @@ export default function Home() {
       onAiSettingsChange={onAiSettingsChange}
       categories={categories}
       onCategoriesChange={setCategories}
-      busy={isParsing || catStatus === "loading"}
     >
       {/* ----------------------------------------------------------------- */}
       {/* Step: Upload                                                        */}
       {/* ----------------------------------------------------------------- */}
       {step === "upload" && (
-        <div className="flex flex-col gap-12">
+        <div className="flex flex-col gap-6">
           {savedSession && (
             <ResumeBanner
               session={savedSession}
@@ -396,21 +395,19 @@ export default function Home() {
       {/* Step: Review                                                        */}
       {/* ----------------------------------------------------------------- */}
       {step === "review" && (
-        <div className="flex flex-col gap-10">
+        <div className="flex flex-col gap-5">
           {isDemo && (
             <Notice tone="warning">
               You&apos;re exploring a sample. All transactions are fictional,
               and your saved review stays untouched.
             </Notice>
           )}
-          {/* Tera move: tiny label left, file attribution right, on a hairline. */}
-          <p className="label flex min-w-0 items-center gap-3 border-b pb-4">
-            <span className="shrink-0">Review</span>
-            <FileText className="ml-auto size-3.5 shrink-0" aria-hidden />
-            <span className="truncate normal-case tracking-normal">
-              {csvFilename}
+          <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+            <FileText className="size-3.5 shrink-0" aria-hidden />
+            <span className="tabular truncate">{csvFilename}</span>
+            <span className="tabular ml-auto shrink-0 rounded-full border-2 border-ink bg-card px-2 py-0.5 font-semibold text-foreground">
+              SGD
             </span>
-            <span className="shrink-0">SGD</span>
           </p>
           <TransactionTable
             transactions={transactions}
@@ -440,7 +437,7 @@ export default function Home() {
           )}
 
           {/* Step actions */}
-          <div className="flex flex-wrap items-center justify-between gap-4 border-t pt-8">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-ink bg-card p-4 shadow-hard">
             <ResetImportButton
               onReset={handleReset}
               disabled={catStatus === "loading"}
@@ -449,20 +446,20 @@ export default function Home() {
               {!isDemo && effectiveMode !== "manual" && (
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => triggerCategorise()}
                   disabled={catStatus === "loading"}
                 >
-                  <Sparkles className="size-4" aria-hidden />
+                  <Sparkles className="size-4" />
                   {catStatus === "loading" ? "Categorising…" : "Re-categorise"}
                 </Button>
               )}
               <Button
-                size="lg"
                 onClick={() => setStep("export")}
                 disabled={catStatus === "loading" || transactions.length === 0}
               >
                 Continue to export
-                <ArrowRight className="size-4" aria-hidden />
+                <ArrowRight className="size-4" />
               </Button>
             </div>
           </div>

@@ -5,13 +5,13 @@ import { CircleAlert, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const noticeVariants = cva(
-  "flex items-start gap-3 rounded-lg border p-4 text-sm leading-6",
+  "flex items-start gap-3 rounded-md border-2 p-3 text-xs leading-5",
   {
     variants: {
       tone: {
-        // Reason: no accent fills; a warning is a darker hairline and a glyph.
-        warning: "border-foreground/60 bg-card text-foreground",
-        info: "border-border bg-transparent text-muted-foreground",
+        // Reason: warnings reuse the brand yellow instead of a second amber hue.
+        warning: "border-ink bg-cta/30 text-foreground",
+        info: "border-border bg-card text-foreground",
       },
     },
     defaultVariants: { tone: "info" },

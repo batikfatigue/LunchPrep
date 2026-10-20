@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { SavedSession } from "@/lib/session";
 
@@ -15,14 +15,11 @@ export function ResumeBanner({
   onDiscard: () => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-b pb-6">
-      <FileText
-        className="size-4 shrink-0 text-muted-foreground"
-        aria-hidden
-      />
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border-2 border-ink bg-cta/30 px-4 py-3 shadow-hard-sm">
+      <FileText className="size-4 shrink-0 text-primary" aria-hidden />
       <div className="min-w-0 flex-1">
-        <p className="text-base font-medium">Pick up where you left off</p>
-        <p className="truncate text-sm text-muted-foreground">
+        <p className="text-sm font-semibold">Pick up where you left off</p>
+        <p className="mt-1 truncate text-xs text-muted-foreground">
           {session.meta.filename}, {session.meta.txnCount} transactions saved on
           this device
         </p>
@@ -30,7 +27,6 @@ export function ResumeBanner({
       <div className="flex gap-2">
         <Button size="sm" onClick={onResume}>
           Resume review
-          <ArrowRight className="size-3.5" aria-hidden />
         </Button>
         <Button size="sm" variant="ghost" onClick={onDiscard}>
           Dismiss

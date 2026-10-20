@@ -1,9 +1,9 @@
 /**
- * Neutral pill styling and icons for category badges in the review table.
+ * Colour and icon styling for category badges in the review table.
  *
  * Categories are user-editable, so styling is resolved by keyword first and
  * falls back to a deterministic palette slot derived from the category name.
- * The same category therefore always renders with the same icon.
+ * The same category therefore always renders in the same colour.
  */
 
 /** Tailwind classes plus the lucide icon name used for a category badge. */
@@ -30,20 +30,15 @@ export type CategoryIconName =
   | "repeat"
   | "tag";
 
-/**
- * Quiet Editorial: category pills are neutral. The icon and the label carry
- * the meaning, so every slot shares one hairline treatment (see DESIGN.md).
- * No rainbow tags.
- */
-const NEUTRAL = "bg-card text-foreground border-border";
+/** The palette used for both keyword hits and hashed fallbacks. */
 const PALETTE: Record<string, string> = {
-  green: NEUTRAL,
-  amber: NEUTRAL,
-  rose: NEUTRAL,
-  violet: NEUTRAL,
-  sky: NEUTRAL,
-  teal: NEUTRAL,
-  slate: "border-dashed border-input bg-transparent text-ink-mute",
+  green: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900",
+  amber: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900",
+  rose: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900",
+  violet: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-900",
+  sky: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-900",
+  teal: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-900",
+  slate: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:border-slate-700",
 };
 
 /** Palette slots used when no keyword matches, in hash order. */

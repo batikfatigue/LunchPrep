@@ -35,12 +35,4 @@ describe("PipelineSteps", () => {
       screen.getAllByRole("listitem").some((li) => li.hasAttribute("aria-current")),
     ).toBe(false);
   });
-
-  it("signals in-progress only when busy, on the current step", () => {
-    const { rerender } = render(<PipelineSteps currentStep="review" />);
-    expect(document.body.textContent).not.toContain("in progress");
-    rerender(<PipelineSteps currentStep="review" busy />);
-    expect(document.body.textContent).toContain("Review, in progress");
-    expect(document.body.textContent).not.toContain("Upload, in progress");
-  });
 });

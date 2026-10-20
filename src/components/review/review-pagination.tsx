@@ -92,10 +92,10 @@ export function ReviewPagination({
             aria-current={item === page ? "page" : undefined}
             onClick={() => onPageChange(item)}
             className={cn(
-              "tabular size-9 rounded-full text-sm transition-colors duration-200",
+              "tabular size-9 rounded-md border-2 text-sm transition-colors",
               item === page
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                ? "border-ink bg-cta font-semibold text-cta-foreground"
+                : "border-transparent text-muted-foreground hover:bg-accent hover:text-foreground",
             )}
           >
             {item + 1}
@@ -140,10 +140,10 @@ function ArrowButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "inline-flex size-9 items-center justify-center rounded-full border border-input text-foreground transition-colors duration-200",
+        "inline-flex size-9 items-center justify-center rounded-md border-2 border-ink text-foreground transition-colors",
         disabled
           ? "cursor-not-allowed opacity-40"
-          : "hover:border-foreground hover:bg-card",
+          : "hover:bg-accent hover:text-foreground",
       )}
     >
       {children}

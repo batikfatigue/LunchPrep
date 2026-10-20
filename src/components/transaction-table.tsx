@@ -16,8 +16,9 @@
  */
 
 import * as React from "react";
-import { ArrowDown, ArrowUp, Loader2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Lightbulb, Loader2, X } from "lucide-react";
 
+import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { ReviewPagination } from "@/components/review/review-pagination";
@@ -275,7 +276,7 @@ export function TransactionTable({
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-4">
       <ReviewToolbar
         counts={counts}
         filter={filter}
@@ -286,8 +287,8 @@ export function TransactionTable({
       />
 
       {checkedRows.size > 0 && (
-        <div className="flex flex-wrap items-center gap-3 rounded-md border border-foreground bg-card px-4 py-3">
-          <span className="label !text-foreground">
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border-2 border-ink bg-cta/30 p-3 shadow-hard-sm">
+          <span className="text-xs font-semibold">
             {checkedRows.size} selected
           </span>
           <select
@@ -295,7 +296,7 @@ export function TransactionTable({
             value={bulkCategory}
             onChange={(event) => setBulkCategory(event.target.value)}
             disabled={status === "loading"}
-            className="h-9 min-w-0 rounded-full border border-input bg-card px-3 text-sm"
+            className="h-9 min-w-0 rounded-md border-2 border-ink bg-card px-3 text-xs"
           >
             <option value="">Choose a category…</option>
             {categories.map((category) => (
@@ -329,17 +330,17 @@ export function TransactionTable({
         </div>
       )}
       <div
-        className="relative overflow-hidden border-y"
+        className="relative overflow-hidden rounded-xl border-2 border-ink bg-card shadow-hard"
         aria-busy={status === "loading"}
       >
         {/* Loading overlay — shown while AI categorisation is in-flight */}
         {status === "loading" && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/85">
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm">
             <div
               role="status"
-              className="flex items-center gap-2 text-sm text-foreground"
+              className="flex items-center gap-2 text-sm text-muted-foreground"
             >
-              <Loader2 className="size-4 animate-spin" aria-hidden />
+              <Loader2 className="size-4 animate-spin" />
               <span>Categorising transactions…</span>
             </div>
           </div>
@@ -349,7 +350,7 @@ export function TransactionTable({
         {status === "error" && (
           <div
             role="alert"
-            className="border-b border-destructive px-5 py-4 text-sm text-destructive"
+            className="border-b-2 border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive"
           >
             AI categorisation failed. You can assign categories manually using
             the dropdowns below.
@@ -361,15 +362,15 @@ export function TransactionTable({
           </div>
         )}
 
-        <div className="md:overflow-x-auto" inert={status === "loading"}>
-          <table className="w-full text-sm max-md:block md:min-w-[760px]">
+        <div className="overflow-x-auto" inert={status === "loading"}>
+          <table className="w-full min-w-[640px] text-sm">
             <caption className="sr-only">
               Statement transactions. Edit payees, notes, and categories before
               exporting.
             </caption>
-            <thead className="max-md:block">
-              <tr className="label border-b text-left max-md:flex max-md:items-center max-md:gap-4 max-md:py-3">
-                <th className="w-10 px-4 py-4 max-md:px-0 max-md:py-0">
+            <thead>
+              <tr className="border-b-2 border-ink bg-cta/20 text-left text-xs font-semibold text-foreground">
+                <th className="w-10 px-3 py-2">
                   <Checkbox
                     checked={headerChecked}
                     onCheckedChange={(value) =>
@@ -379,7 +380,7 @@ export function TransactionTable({
                   />
                 </th>
                 <th
-                  className="px-3 py-4 font-medium max-md:px-0 max-md:py-0"
+                  className="px-3 py-3"
                   aria-sort={sort === "asc" ? "ascending" : "descending"}
                 >
                   <button
@@ -387,7 +388,7 @@ export function TransactionTable({
                     onClick={() =>
                       setSort((s) => (s === "asc" ? "desc" : "asc"))
                     }
-                    className="inline-flex items-center gap-1 uppercase tracking-[0.08em] hover:text-foreground"
+                    className="inline-flex items-center gap-1 hover:text-foreground"
                     aria-label={`Sort by date, currently ${sort === "asc" ? "ascending" : "descending"}`}
                   >
                     Date
@@ -398,13 +399,13 @@ export function TransactionTable({
                     )}
                   </button>
                 </th>
-                <th className="px-3 py-4 font-medium max-md:hidden">Payee / Description</th>
-                <th className="px-3 py-4 font-medium max-md:hidden">Category</th>
-                <th className="px-3 py-4 text-right font-medium max-md:hidden">Amount (SGD)</th>
-                <th className="px-3 py-4 font-medium max-md:hidden">Status</th>
+                <th className="px-3 py-2">Payee / Description</th>
+                <th className="px-3 py-2">Category</th>
+                <th className="px-3 py-2 text-right">Amount</th>
+                <th className="px-3 py-2">Status</th>
               </tr>
             </thead>
-            <tbody className="max-md:block">
+            <tbody>
               {pageRows.map(({ index, transaction }) => (
                 <TransactionRow
                   key={index}
@@ -431,21 +432,16 @@ export function TransactionTable({
         </div>
 
         {visible.length === 0 && (
-          <div className="px-4 py-20 text-center">
-            <p className="statement mx-auto max-w-[18ch]">
-              {transactions.length === 0 ? "Nothing here yet." : "No matches."}
-            </p>
-            <p className="mt-5 text-base text-muted-foreground">
+          <div className="px-4 py-10 text-center text-sm text-muted-foreground">
             {transactions.length === 0
               ? "No transactions to display."
               : "No transactions match this filter."}
-            </p>
           </div>
         )}
 
         {/* Selection count + pagination */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-4">
-          <p className="tabular text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t-2 border-ink px-4 py-3">
+          <p className="text-xs text-muted-foreground">
             {visible.length === 0
               ? "0 transactions"
               : `${safePage * PAGE_SIZE + 1}-${Math.min((safePage + 1) * PAGE_SIZE, visible.length)} of ${visible.length} transactions`}
@@ -460,20 +456,25 @@ export function TransactionTable({
 
       {/* Keyboard tip */}
       {!tipDismissed && (
-        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-          <p className="min-w-0 flex-1">
-            <span className="label mr-3">Tip</span>
-            Press{" "}
-            <kbd className="rounded border border-input px-1.5 font-mono text-xs text-foreground">
-              /
-            </kbd>{" "}
-            to search. Click any payee, note or category to edit it inline.
-          </p>
+        <div className="flex items-start gap-3 rounded-xl border-2 border-dashed border-ink/40 px-4 py-3">
+          <Lightbulb
+            className="mt-0.5 size-4 shrink-0 text-primary"
+            aria-hidden
+          />
+          <div className="min-w-0 flex-1 text-xs">
+            <p className="font-medium">Tip: Use shortcuts</p>
+            <p className="mt-0.5 text-muted-foreground">
+              Press <kbd className="tabular rounded border-2 border-ink px-1.5">/</kbd> to search.
+              Click any payee, note or category to edit it inline.
+            </p>
+          </div>
           <button
             type="button"
             aria-label="Dismiss tip"
             onClick={() => setTipDismissed(true)}
-            className="rounded-full p-1.5 transition-colors hover:bg-muted hover:text-foreground"
+            className={cn(
+              "rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+            )}
           >
             <X className="size-3.5" />
           </button>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter_Tight, JetBrains_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Geist, Geist_Mono } from "next/font/google";
 import dynamic from "next/dynamic";
 import "./globals.css";
 
@@ -14,14 +14,14 @@ const DevToolsBootstrap =
     ? dynamic(() => import("@/dev-tools/_bootstrap"))
     : null;
 
-// Reason: Quiet Editorial pairing (see DESIGN.md): a neutral grotesk for UI
-// and display, mono for labels, figures and code-like moments (workbench override).
-const interTight = Inter_Tight({
-  variable: "--font-inter-tight",
+const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
   subsets: ["latin"],
 });
-const jetbrains = JetBrains_Mono({
-  variable: "--font-jetbrains",
+// Reason: a characterful display face carries the brand; Geist stays neutral for UI.
+const bricolage = Bricolage_Grotesque({
+  variable: "--font-bricolage",
   subsets: ["latin"],
 });
 
@@ -59,17 +59,13 @@ export default function RootLayout({
   return (
     // suppressHydrationWarning: the inline script may add 'dark' before React
     // hydrates, causing a class mismatch warning. This suppresses it safely.
-    <html
-      lang="en"
-      suppressHydrationWarning
-      className={`${interTight.variable} ${jetbrains.variable}`}
-    >
+    <html lang="en" suppressHydrationWarning>
       <head>
         {/* Blocking theme script — must be first in <head> to prevent FOUC */}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body
-        className="antialiased"
+        className={`${geist.variable} ${geistMono.variable} ${bricolage.variable} antialiased`}
       >
         {children}
         {DevToolsBootstrap && <DevToolsBootstrap />}

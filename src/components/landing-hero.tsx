@@ -1,118 +1,98 @@
 "use client";
 
-import { ArrowDown, Check } from "lucide-react";
-import { PrepSheet } from "@/components/brand/prep-sheet";
-import { ScrollLink } from "@/components/scroll-link";
+import Image from "next/image";
+import { FileCheck2, FileText, ShieldCheck, Sparkles } from "lucide-react";
 
 const STEPS = [
   {
+    icon: FileText,
     title: "Upload your CSV",
-    detail: "We tidy the bank's formatting and read it in this browser.",
-    fragment: (
-      <p className="tabular flex w-full items-center justify-between gap-3">
-        <span className="truncate">statement-feb.csv</span>
-        <span className="label whitespace-nowrap">stays here</span>
-      </p>
-    ),
+    detail: "We clean up the bank's formatting.",
   },
   {
+    icon: Sparkles,
     title: "Check the categories",
-    detail: "Fix any payee, note or category in a click.",
-    fragment: (
-      <p className="flex w-full items-center justify-between gap-3">
-        <span className="text-sm">Noodle House Stall</span>
-        <span className="marker inline-flex items-center gap-1 rounded-full px-2.5">
-          <Check className="size-3" strokeWidth={2.5} aria-hidden />
-          Dining
-        </span>
-      </p>
-    ),
+    detail: "Fix any payee or category in one click.",
   },
   {
+    icon: FileCheck2,
     title: "Import to Lunch Money",
-    detail: "Download a CSV that Lunch Money understands.",
-    fragment: (
-      <p className="tabular w-full truncate">
-        <span className="marker">date,payee,amount,category,notes</span>
-      </p>
-    ),
+    detail: "Download a CSV it understands.",
   },
 ];
 
-/**
- * Landing promise: micro label on a hairline, an oversized statement, one plain
- * sentence, then the prep sheet showing what the product actually does.
- */
+/** Landing promise with the mascot. */
 export function LandingHero() {
   return (
-    <section
-      aria-labelledby="welcome-title"
-      className="flex flex-col gap-[clamp(48px,6vw,88px)]"
-    >
+    <section aria-labelledby="welcome-title" className="lg:col-start-1">
       <div>
-        <p className="label rise flex items-center gap-3 border-b pb-4">
-          <span>For DBS and POSB statements</span>
-          <span className="ml-auto">Independent companion for Lunch Money</span>
-        </p>
         <h1
           id="welcome-title"
           tabIndex={-1}
-          className="display rise mt-[clamp(40px,6vw,88px)] outline-none"
-          style={{ "--i": 1 } as React.CSSProperties}
+          className="text-[2.5rem] font-bold leading-[1.05] tracking-tight outline-none sm:text-5xl xl:text-[3.5rem]"
         >
-          Prep your bank CSV
+          A little prep.
           <br />
-          for <em>Lunch&nbsp;Money.</em>
+          <span className="mt-2 inline-block bg-cta px-2 text-cta-foreground [box-decoration-break:clone]">
+            A lot more clarity.
+          </span>
         </h1>
-        <div
-          className="rise mt-[clamp(32px,4vw,56px)] grid gap-8 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
-          style={{ "--i": 2 } as React.CSSProperties}
-        >
-          <p className="max-w-[44ch] text-lg leading-relaxed text-muted-foreground">
-            Turn a bank CSV into clean, categorised transactions, without
-            connecting your bank. Your file stays in this browser.
+        <div className="mt-6 flex items-center gap-4">
+          <p className="max-w-sm flex-1 text-base leading-relaxed text-muted-foreground">
+            Turn DBS statements into clean, categorised transactions for{" "}
+            <a
+              href="https://lunchmoney.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-foreground underline decoration-cta decoration-[3px] underline-offset-4 hover:decoration-foreground"
+            >
+              Lunch Money
+            </a>
+            .
           </p>
-          <ScrollLink
-            href="#import"
-            focusId="upload-title"
-            className="group inline-flex h-12 items-center gap-2 justify-self-start rounded-full bg-primary px-7 text-[0.9375rem] font-medium text-primary-foreground transition-[opacity,transform] duration-200 hover:opacity-90 active:scale-[0.98] sm:justify-self-end"
-          >
-            Import a statement
-            <ArrowDown
-              className="size-4 transition-transform duration-200 group-hover:translate-y-0.5"
-              aria-hidden
-            />
-          </ScrollLink>
+          <Image
+            src="/icon.png"
+            alt=""
+            width={160}
+            height={160}
+            priority
+            className="size-24 shrink-0 -rotate-6 object-contain transition-transform duration-300 hover:rotate-3 sm:size-28"
+          />
         </div>
       </div>
-      <PrepSheet />
     </section>
   );
 }
 
-/** Three stations: each step carries a small real fragment of what happens. */
+/** Three-step outline plus the privacy promise, shown under the form on mobile. */
 export function LandingGuide() {
   return (
-    <section aria-labelledby="how-title" className="grid gap-y-12 lg:grid-cols-12 lg:gap-x-12">
-      <h2 id="how-title" className="statement lg:col-span-6">
-        Three steps, <em>no bank login.</em>
-      </h2>
-      <ol className="grid gap-x-12 gap-y-10 lg:col-span-12 lg:grid-cols-3">
-        {STEPS.map(({ title, detail, fragment }) => (
-          <li key={title} className="border-t pt-6">
-            <div
-              aria-hidden
-              className="mb-6 flex min-h-20 items-center rounded-lg border bg-card px-5 py-4 text-xs"
-            >
-              {fragment}
+    <div className="flex flex-col gap-10 lg:col-start-1 lg:self-start">
+      <ol className="grid gap-px overflow-hidden rounded-xl border-2 border-ink bg-ink">
+        {STEPS.map(({ icon: Icon, title, detail }, index) => (
+          <li key={title} className="flex items-center gap-4 bg-card p-4">
+            <span className="tabular flex size-9 shrink-0 items-center justify-center rounded-md border-2 border-ink bg-background text-sm font-semibold">
+              {index + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">{title}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>
             </div>
-            <p className="text-xl tracking-[-0.02em]">{title}</p>
-            <p className="mt-2 max-w-[32ch] text-sm leading-6 text-muted-foreground">
-              {detail}
-            </p>
+            <Icon className="size-4 shrink-0 text-primary" aria-hidden />
           </li>
         ))}
       </ol>
-    </section>
+
+      <div className="flex items-start gap-3 text-sm">
+        <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
+        <p className="leading-relaxed text-muted-foreground">
+          <span className="font-semibold text-foreground">
+            Your CSV stays on your device.
+          </span>{" "}
+          Names and account numbers are masked before any AI request, and your
+          review is saved only in this browser.
+        </p>
+      </div>
+    </div>
   );
 }

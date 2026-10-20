@@ -47,38 +47,38 @@ export function SettingsDialog({
       }}
     >
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-background/80" />
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-foreground/40 backdrop-blur-sm" />
         <Dialog.Content
           onCloseAutoFocus={onCloseAutoFocus}
-          className="fixed left-1/2 top-1/2 z-50 flex max-h-[85dvh] w-[min(36rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border border-foreground/30 bg-card"
+          className="fixed left-1/2 top-1/2 z-50 flex max-h-[85dvh] w-[min(36rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border-2 border-ink bg-card shadow-hard-lg"
         >
-          <div className="flex items-start justify-between gap-4 border-b px-6 py-6 sm:px-8">
+          <div className="flex items-center justify-between border-b-2 border-ink bg-cta/25 px-6 py-5">
             <div>
-              <Dialog.Title className="text-[clamp(1.75rem,5vw,2.25rem)] leading-none tracking-[-0.04em]">
+              <Dialog.Title className="text-xl font-semibold">
                 {panel ? TITLES[panel] : ""}
               </Dialog.Title>
-              <Dialog.Description className="mt-2 text-sm text-muted-foreground">
+              <Dialog.Description className="mt-1 text-xs text-muted-foreground">
                 Make LunchPrep work your way. Preferences save on this device.
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
-              <Button variant="ghost" size="icon" aria-label="Close settings">
+              <Button variant="outline" size="icon" aria-label="Close settings">
                 <X className="size-4" />
               </Button>
             </Dialog.Close>
           </div>
-          <div className="flex flex-col gap-8 overflow-y-auto p-6 sm:p-8">
+          <div className="flex flex-col gap-6 overflow-y-auto p-6">
             {panel === "general" && (
               <section>
-                <p className="label">Appearance</p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                <p className="text-sm font-semibold">Appearance</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   Use the theme button in the header to switch between light,
                   dark, and your system preference.
                 </p>
               </section>
             )}
             {panel !== "categories" && (
-              <section className={cn(panel === "general" && "border-t pt-8")}>
+              <section className={cn(panel === "general" && "border-t pt-5")}>
                 <ApiKeyInput
                   settings={aiSettings}
                   onSettingsChange={onAiSettingsChange}
@@ -86,7 +86,7 @@ export function SettingsDialog({
               </section>
             )}
             {panel !== "ai" && (
-              <section className={cn(panel === "general" && "border-t pt-8")}>
+              <section className={cn(panel === "general" && "border-t pt-5")}>
                 <CategoryEditor
                   categories={categories}
                   onCategoriesChange={onCategoriesChange}
@@ -94,7 +94,7 @@ export function SettingsDialog({
               </section>
             )}
           </div>
-          <div className="flex justify-end border-t px-6 py-4 sm:px-8">
+          <div className="flex justify-end border-t-2 border-ink px-6 py-4">
             <Dialog.Close asChild>
               <Button>Done</Button>
             </Dialog.Close>

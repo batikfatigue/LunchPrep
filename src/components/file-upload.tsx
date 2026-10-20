@@ -140,7 +140,6 @@ export function FileUpload({
         aria-label="Drop CSV file here or click to browse"
         aria-disabled={isLoading}
         aria-busy={isLoading}
-        data-drag={isDragOver}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -152,47 +151,51 @@ export function FileUpload({
           }
         }}
         className={cn(
-          "dropzone flex min-h-60 cursor-pointer flex-col items-start justify-between gap-6",
-          "rounded-[2px] border border-dashed p-6 text-left transition-colors duration-200 sm:p-8",
-          isDragOver && "border-solid border-ok bg-ok/10",
+          "flex min-h-56 cursor-pointer flex-col items-center justify-center gap-4",
+          "rounded-xl border-2 border-dashed p-6 text-center transition-[background-color,transform]",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          isDragOver && "scale-[1.01] border-ink bg-cta/25",
           !isDragOver &&
             !selectedFile &&
-            "border-ok/60 bg-transparent hover:border-solid hover:border-ok hover:bg-ok/5",
-          selectedFile && !isDragOver && "border-solid border-ok bg-ok/10",
+            "border-ink/60 bg-background hover:border-ink hover:bg-cta/10",
+          selectedFile &&
+            !isDragOver &&
+            "border-solid border-ink bg-card shadow-hard-sm",
           isLoading && "cursor-not-allowed opacity-60",
         )}
       >
         {isLoading ? (
           <>
-            <Loader2 className="size-8 animate-spin text-ok" />
+            <Loader2 className="size-10 animate-spin text-muted-foreground" />
             <p className="text-sm text-muted-foreground">Processing file…</p>
           </>
         ) : selectedFile ? (
           <>
-            <FileText className="size-6 text-ok" strokeWidth={1.25} aria-hidden />
+            <FileText className="size-10 text-primary" aria-hidden />
             <div className="min-w-0 max-w-full" role="status">
-              <p className="break-all font-mono text-sm">{selectedFile.name}</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                <span className="tabular">
-                  {(selectedFile.size / 1024).toFixed(1)} KB
-                </span>
-                , ready to prepare
+              <p className="break-all text-sm font-semibold text-primary">
+                {selectedFile.name}
               </p>
-              <p className="link-quiet mt-4 inline-block text-sm">
+              <p className="mt-1 text-xs text-muted-foreground">
+                <span className="tabular">{(selectedFile.size / 1024).toFixed(1)} KB</span>, ready to prepare
+              </p>
+              <p className="mt-3 text-xs text-primary underline underline-offset-4">
                 Choose a different file
               </p>
             </div>
           </>
         ) : (
           <>
-            <Upload className="size-6 text-ok" strokeWidth={1.25} aria-hidden />
+            <span className="flex size-12 items-center justify-center rounded-md border-2 border-ink bg-cta text-cta-foreground shadow-hard-sm">
+              <Upload className="size-5" strokeWidth={1.5} aria-hidden />
+            </span>
             <div>
-              <p className="text-[clamp(1.5rem,2.6vw,2rem)] leading-tight tracking-[-0.03em]">Drop your statement here<span className="caret" aria-hidden /></p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                or choose a CSV file from your device
+              <p className="text-sm font-semibold">Drop your statement here</p>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                or choose a file from your device
               </p>
             </div>
-            <span className="inline-flex h-10 items-center rounded-full border border-ok px-5 text-sm text-ok">
+            <span className="rounded-md border-2 border-ink bg-card px-4 py-2 text-xs font-semibold shadow-hard-sm">
               Browse files
             </span>
           </>
@@ -203,7 +206,7 @@ export function FileUpload({
           variant="ghost"
           size="icon-sm"
           aria-label="Remove selected file"
-          className="absolute right-3 top-3"
+          className="absolute right-2 top-2"
           onClick={() => {
             setLocalError(null);
             onFileClear();
@@ -227,9 +230,9 @@ export function FileUpload({
       {displayError && (
         <div
           role="alert"
-          className="flex items-start gap-2 rounded-md border border-destructive px-4 py-3 text-sm text-destructive"
+          className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
         >
-          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <AlertCircle className="size-4 shrink-0" />
           {displayError}
         </div>
       )}
