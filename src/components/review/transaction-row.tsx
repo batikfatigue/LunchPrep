@@ -102,8 +102,7 @@ export function EditableCell({
           if (e.key === "Escape") cancel();
         }}
         className={cn(
-          "w-full rounded border bg-background px-1.5 py-0.5 text-sm outline-none",
-          "focus:ring-2 focus:ring-ring focus:ring-offset-0",
+          "w-full rounded-md border border-foreground bg-card px-1.5 py-0.5 text-sm outline-none",
           className,
         )}
       />
@@ -127,8 +126,8 @@ export function EditableCell({
       }}
       title="Click to edit"
       className={cn(
-        "block cursor-text rounded px-1.5 py-0.5 hover:bg-accent/50",
-        !value && "text-muted-foreground/50",
+        "block cursor-text rounded-md px-1.5 py-0.5 transition-colors hover:bg-card",
+        !value && "text-ink-mute",
         className,
       )}
     >
@@ -198,10 +197,11 @@ export function TransactionRow({
 
   return (
     <tr
+      role="row"
       className={cn(
-        "border-b last:border-0 transition-colors hover:bg-accent/50",
-        needsReview && "bg-cta/10",
-        isSelected && "bg-accent ring-2 ring-inset ring-ink",
+        "border-b transition-colors duration-150 last:border-0 hover:bg-card/70",
+        "max-md:grid max-md:grid-cols-[auto_1fr_auto] max-md:items-center max-md:gap-x-3 max-md:gap-y-1 max-md:px-0 max-md:py-4",
+        isSelected && "bg-muted ring-1 ring-inset ring-foreground",
         onRowSelect && "cursor-pointer",
       )}
       onClick={() => {
@@ -210,7 +210,7 @@ export function TransactionRow({
       }}
     >
       {/* Selection */}
-      <td className="w-10 px-3 py-2" onClick={(e) => e.stopPropagation()}>
+      <td role="cell" className="w-10 px-4 py-4 max-md:col-start-1 max-md:row-start-1 max-md:w-auto max-md:px-0 max-md:py-0" onClick={(e) => e.stopPropagation()}>
         <Checkbox
           checked={checked}
           onCheckedChange={(value) => onCheckedChange(index, value === true)}
@@ -219,12 +219,12 @@ export function TransactionRow({
       </td>
 
       {/* Date */}
-      <td className="tabular whitespace-nowrap px-3 py-3 text-xs text-muted-foreground">
+      <td role="cell" className="tabular whitespace-nowrap px-3 py-4 text-sm text-muted-foreground max-md:col-span-2 max-md:col-start-2 max-md:row-start-1 max-md:px-0 max-md:py-0 max-md:text-xs">
         {formatTableDate(transaction.date)}
       </td>
 
       {/* Payee + notes */}
-      <td className="min-w-48 px-3 py-3 font-medium">
+      <td role="cell" className="min-w-48 px-3 py-4 max-md:col-span-3 max-md:row-start-2 max-md:min-w-0 max-md:px-0 max-md:py-0">
         {onPayeeChange ? (
           <EditableCell
             value={transaction.description}
@@ -240,13 +240,13 @@ export function TransactionRow({
             placeholder="Add note…"
             onCommit={(val) => onNotesChange(index, val)}
             onEditEnd={handleEditEnd}
-            className="text-xs font-normal text-muted-foreground"
+            className="text-sm text-muted-foreground"
           />
         )}
       </td>
 
       {/* Category */}
-      <td className="px-3 py-2">
+      <td role="cell" className="px-3 py-4 max-md:col-span-2 max-md:row-start-3 max-md:px-0 max-md:py-0">
         <Select.Root
           value={selectedCategory}
           onValueChange={(value) => onCategoryChange(index, value)}
@@ -254,15 +254,14 @@ export function TransactionRow({
           <Select.Trigger
             onClick={(e) => e.stopPropagation()}
             className={cn(
-              "flex w-full max-w-44 items-center justify-between gap-1 rounded-full border-2 border-border bg-card py-0.5 pl-0.5 pr-2",
-              "transition-colors hover:border-ink focus:border-ink focus:outline-none focus:shadow-hard-sm",
+              "flex max-w-full items-center gap-2 rounded-full py-0.5 pl-0 pr-2",
+              "transition-colors hover:bg-card",
             )}
             aria-label="Select category"
           >
             <CategoryBadge
               category={selectedCategory}
               needsReview={needsReview && !!selectedCategory}
-              className="border-transparent bg-transparent dark:bg-transparent"
             />
             <ChevronDown
               className="size-3 shrink-0 text-muted-foreground"
@@ -272,7 +271,7 @@ export function TransactionRow({
 
           <Select.Portal>
             <Select.Content
-              className="z-50 max-h-60 min-w-[9rem] overflow-auto rounded-md border-2 border-ink bg-popover shadow-hard"
+              className="z-50 max-h-60 min-w-[10rem] overflow-auto rounded-md border bg-popover py-1 shadow-sm"
               position="popper"
               sideOffset={4}
             >
@@ -282,7 +281,7 @@ export function TransactionRow({
                     key={cat}
                     value={cat}
                     className={cn(
-                      "cursor-pointer px-3 py-1.5 text-xs outline-none",
+                      "cursor-pointer px-3 py-2 text-sm outline-none",
                       "data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground",
                     )}
                   >
@@ -297,16 +296,17 @@ export function TransactionRow({
 
       {/* Amount */}
       <td
+        role="cell"
         className={cn(
-          "tabular whitespace-nowrap px-3 py-2 text-right text-[13px]",
-          isDebit ? "text-foreground" : "font-semibold text-primary",
+          "tabular whitespace-nowrap px-3 py-4 text-right text-sm max-md:col-start-3 max-md:row-start-3 max-md:px-0 max-md:py-0",
+          isDebit ? "text-muted-foreground" : "font-medium text-foreground",
         )}
       >
         {formatAmount(transaction.amount)}
       </td>
 
       {/* AI confidence */}
-      <td className="px-3 py-2">
+      <td role="cell" className="px-3 py-4 max-md:hidden">
         <ReviewStatusIcon status={reviewStatus} />
       </td>
     </tr>
@@ -314,31 +314,25 @@ export function TransactionRow({
 }
 
 /**
- * Icon summarising a row's review status in the AI column.
+ * Glyph plus a short word summarising a row's review status. Filled check =
+ * categorised, triangle = needs review, dashed circle = not categorised.
  *
- * @param props.status - Derived review status.
+ * @param {ReviewStatus} props.status - Derived review status.
+ * @returns {JSX.Element} Status indicator.
  */
 function ReviewStatusIcon({ status }: { status: ReviewStatus }) {
-  if (status === "categorised") {
-    return (
-      <CheckCircle2
-        className="size-4 text-primary"
-        aria-label="Categorised"
-      />
-    );
-  }
-  if (status === "needs-review") {
-    return (
-      <CircleAlert
-        className="size-4 text-foreground"
-        aria-label="Needs your review"
-      />
-    );
-  }
+  const meta =
+    status === "categorised"
+      ? { Icon: CheckCircle2, text: "Done", label: "Categorised", tone: "text-foreground" }
+      : status === "needs-review"
+        ? { Icon: CircleAlert, text: "Check", label: "Needs your review", tone: "text-foreground font-medium" }
+        : { Icon: CircleDashed, text: "Open", label: "Not categorised", tone: "text-ink-mute" };
   return (
-    <CircleDashed
-      className="size-4 text-muted-foreground/60"
-      aria-label="Not categorised"
-    />
+    <span className={cn("inline-flex items-center gap-1.5 text-xs", meta.tone)}>
+      <meta.Icon className="size-4" aria-label={meta.label} />
+      <span className="hidden xl:inline" aria-hidden>
+        {meta.text}
+      </span>
+    </span>
   );
 }
